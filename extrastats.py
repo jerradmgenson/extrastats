@@ -311,13 +311,17 @@ def permutation_test(f, a, *args,
 def _ind_permutation(f, args, seed=0, shuffle=True, batch=False):
     rng = np.random.default_rng(seed)
     if shuffle:
-        orig_shape = [len(x) for x in args]
+        orig_shape = [x.shape for x in args]
+        args = [arg.flatten() for arg in args]
+        orig_len = [len(arg) for arg in args]
         args = np.concatenate(args)
         rng.shuffle(args)
         new_args = []
-        for i in orig_shape:
-            new_args.append(args[:i])
+        for length, shape in zip(orig_len, orig_shape):
+            new_arg = args[:i]
+            new_arg.shape = shape
             args = args[i:]
+            new_args.append(new_arg)
 
         args = new_args
 
