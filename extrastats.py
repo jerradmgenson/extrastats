@@ -318,9 +318,9 @@ def _ind_permutation(f, args, seed=0, shuffle=True, batch=False):
         rng.shuffle(args)
         new_args = []
         for length, shape in zip(orig_len, orig_shape):
-            new_arg = args[:i]
+            new_arg = args[:length]
             new_arg.shape = shape
-            args = args[i:]
+            args = args[length:]
             new_args.append(new_arg)
 
         args = new_args
