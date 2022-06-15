@@ -372,7 +372,7 @@ def _samples_permutation(f, args, seed=0, shuffle=True, batch=False):
             rng.shuffle(arg)
             new_args.append(arg)
 
-        args = np.array(new_args)
+        args = np.array(new_args).T
 
     if hasattr(f, '_accepts_random_state'):
         f = partial(f, random_state=rng)
