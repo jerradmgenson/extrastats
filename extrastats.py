@@ -254,7 +254,12 @@ def permutation_test(f, a, *args,
         calc_permutation = partial(_ind_permutation, f, batch=batch)
 
     elif permutation_type == PermutationType.samples:
-        raise NotImplementedError('permutation_type=PermutationType.samples is not implemented yet')
+        arg0_len = len(args[0])
+        for arg in args:
+            if len(arg) != arg0_len:
+                raise ValueError('Samples must be the same size in a samples permutation test.')
+
+        calc_permutation = partial(_samples_permutation, f, batch=batch)
 
     elif permutation_type == PermutationType.pairings:
         calc_permutation = partial(_paired_permutation, f, batch=batch)
@@ -339,11 +344,38 @@ def _ind_permutation(f, args, seed=0, shuffle=True, batch=False):
 
 # Evaluate a single permutation in a pairings-style permutation test.
 def _paired_permutation(f, args, seed=0, shuffle=True, batch=False):
+    rng = np.random.default_rng(seed)
     if shuffle:
         rng = np.random.default_rng(seed)
         for i in range(len(args)):
             args[i] = np.copy(args[i])
             rng.shuffle(args[i])
+
+    if hasattr(f, '_accepts_random_state'):
+        f = partial(f, random_state=rng)
+
+    if batch:
+        statistics = f(args)
+
+    else:
+        statistics = tuple([f(x) for x in args])
+
+    return statistics
+
+
+def _samples_permutation(f, args, seed=0, shuffle=True, batch=False):
+    rng = np.random.default_rng(seed)
+    if shuffle:
+        new_args = []
+        for arg in zip(*args):
+            arg = np.array(arg)
+            rng.shuffle(arg)
+            new_args.append(arg)
+
+        args = np.array(new_args)
+
+    if hasattr(f, '_accepts_random_state'):
+        f = partial(f, random_state=rng)
 
     if batch:
         statistics = f(args)
