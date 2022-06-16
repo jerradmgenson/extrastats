@@ -342,7 +342,7 @@ def _ind_permutation(f, args, seed=0, shuffle=True, batch=False):
         f = partial(f, random_state=rng)
 
     if batch:
-        statistics = f(args)
+        statistics = f(*args)
 
     else:
         statistics = tuple([f(x) for x in args])
@@ -363,7 +363,7 @@ def _paired_permutation(f, args, seed=0, shuffle=True, batch=False):
         f = partial(f, random_state=rng)
 
     if batch:
-        statistics = f(args)
+        statistics = f(*args)
 
     else:
         statistics = tuple([f(x) for x in args])
@@ -387,7 +387,7 @@ def _samples_permutation(f, args, seed=0, shuffle=True, batch=False):
         f = partial(f, random_state=rng)
 
     if batch:
-        statistics = f(args)
+        statistics = f(*args)
 
     else:
         statistics = tuple([f(x) for x in args])
@@ -415,7 +415,7 @@ def _bootstrap_permutation(f, args, seed=0, shuffle=True, batch=False):
         f = partial(f, random_state=rng)
 
     if batch:
-        statistics = f(args)
+        statistics = f(*args)
 
     else:
         statistics = tuple([f(x) for x in args])
@@ -517,17 +517,14 @@ def test_trimmed_mean(a, b, *args, proportiontocut=0.1, **kwargs):
 
 
 # Calculate Silhouette Coefficient over axis 1 of a 2D ndarray.
-def _silhouette_coeff(X, metric='euclidean'):
-    y = []
-    for i, a in enumerate(X):
-        y.append(np.full(len(a), i))
-
+def _silhouette_coeff(*X, metric='euclidean'):
+    y = [np.full(len(a), i) for i, a in enumerate(X)]
     y = np.concatenate(y)
     X = np.concatenate(X)
     if X.ndim == 1:
         X = X.reshape(-1, 1)
 
-    return [silhouette_score(X, y, metric=metric)]
+    return silhouette_score(X, y, metric=metric)
 
 
 def test_silhouette(a, b, *args, metric='euclidean', **kwargs):
@@ -559,16 +556,15 @@ def test_silhouette(a, b, *args, metric='euclidean', **kwargs):
 
 
 # Calculate mutual information on discrete datasets.
-def _mutual_info_discrete(data, average_method='arithmetic'):
-    return adjusted_mutual_info_score(data[0], data[1], average_method=average_method)
+def _mutual_info_discrete(a, b, average_method='arithmetic'):
+    return adjusted_mutual_info_score(a, b, average_method=average_method)
 
 
 # Calculate mutual information on continuous datasets.
 @accepts_random_state
-def _mutual_info_continuous(data, discrete_features=False, n_neighbors=3, random_state=None):
-    x = data[0].reshape(-1, 1)
-    y = data[1]
-    return mutual_info_regression(x, y,
+def _mutual_info_continuous(a, b, discrete_features=False, n_neighbors=3, random_state=None):
+    a = a.reshape(-1, 1)
+    return mutual_info_regression(a, b,
                                   discrete_features=discrete_features,
                                   n_neighbors=n_neighbors,
                                   random_state=random_state)
