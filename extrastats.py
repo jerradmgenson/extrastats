@@ -19,7 +19,7 @@ INT_MAX = 2147483648
 
 DistSide = Enum('DistSide', 'left right both')
 Alternative = Enum('Alternative', 'greater lesser two_sided')
-PermutationType = Enum('PermutationType', 'independent samples pairings')
+PermutationType = Enum('PermutationType', 'independent samples pairings bootstrap')
 
 TestResult = namedtuple('TestResult', 'statistic p_value')
 
@@ -200,7 +200,7 @@ def tail_weight(x, side=DistSide.both):
 
 def permutation_test(f, a, *args,
                      alternative=Alternative.two_sided,
-                     permutation_type=PermutationType.independent,
+                     permutation_type=PermutationType.bootstrap,
                      iterations=1000,
                      batch=False,
                      n_jobs=1,
@@ -229,6 +229,8 @@ def permutation_test(f, a, *args,
                           is randomized, but the ordering is preserved.
                         - independent: both the sample that an observation
                           belongs to and the ordering is randomized.
+                        - bootstrap: combines observations from all samples
+                          and then resamples with replacement.
       iterations: Number of permutations to evaluate.
       batch: If set to True, 'f' accepts a list of ndarrays instead of a
              single array, and may return a scalar or a vector value.
@@ -263,6 +265,9 @@ def permutation_test(f, a, *args,
 
     elif permutation_type == PermutationType.pairings:
         calc_permutation = partial(_paired_permutation, f, batch=batch)
+
+    elif permutation_type == PermutationType.bootstrap:
+        calc_permutation = partial(_bootstrap_permutation, f, batch=batch)
 
     else:
         raise ValueError(f'Got unexpected value for permutation_type: {permutation_type}')
@@ -318,14 +323,14 @@ def _ind_permutation(f, args, seed=0, shuffle=True, batch=False):
     if shuffle:
         orig_shape = [x.shape for x in args]
         args = [arg.flatten() for arg in args]
-        orig_len = [len(arg) for arg in args]
+        orig_size = [len(arg) for arg in args]
         args = np.concatenate(args)
         rng.shuffle(args)
         new_args = []
-        for length, shape in zip(orig_len, orig_shape):
-            new_arg = args[:length]
+        for size, shape in zip(orig_size, orig_shape):
+            new_arg = args[:size]
             new_arg.shape = shape
-            args = args[length:]
+            args = args[size:]
             new_args.append(new_arg)
 
         args = new_args
@@ -363,6 +368,7 @@ def _paired_permutation(f, args, seed=0, shuffle=True, batch=False):
     return statistics
 
 
+# Evaluate a single permutation in a samples-style permutation test.
 def _samples_permutation(f, args, seed=0, shuffle=True, batch=False):
     rng = np.random.default_rng(seed)
     if shuffle:
@@ -373,6 +379,34 @@ def _samples_permutation(f, args, seed=0, shuffle=True, batch=False):
             new_args.append(arg)
 
         args = np.array(new_args).T
+
+    if hasattr(f, '_accepts_random_state'):
+        f = partial(f, random_state=rng)
+
+    if batch:
+        statistics = f(args)
+
+    else:
+        statistics = tuple([f(x) for x in args])
+
+    return statistics
+
+
+# Evaluate a single permutation in a bootstrap-style permutation test.
+def _bootstrap_permutation(f, args, seed=0, shuffle=True, batch=False):
+    rng = np.random.default_rng(seed)
+    if shuffle:
+        orig_shape = [x.shape for x in args]
+        args = [arg.flatten() for arg in args]
+        orig_size = [len(arg) for arg in args]
+        args = np.concatenate(args)
+        new_args = []
+        for size, shape in zip(orig_size, orig_shape):
+            new_arg = rng.choice(args, size=size, replace=True)
+            new_arg.shape = shape
+            new_args.append(new_arg)
+
+        args = new_args
 
     if hasattr(f, '_accepts_random_state'):
         f = partial(f, random_state=rng)
