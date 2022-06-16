@@ -1,3 +1,16 @@
+"""
+extrastats implements all the statistics you've been missing from numpy,
+scipy, and statsmodels! Well, maybe not all of them. But some of them.
+
+Copyright 2022 Jerrad Michael Genson
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+"""
+
+
 import math
 from enum import Enum
 from collections import namedtuple
@@ -208,6 +221,9 @@ def permutation_test(f, a, *args,
                      random_state=None):
     """
     Conduct a randomized permutation test on the given datasets.
+
+    Unlike the scipy implementation, extrastats supports parallel
+    execution via joblib and bootstrap permutations.
 
     Args:
       f: A function that calculates the statistic of interest. Normally,
