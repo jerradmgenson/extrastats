@@ -289,9 +289,12 @@ def permutation_test(f, a, *args,
     jobs = chain([sample_statistic],
                  (delayed(calc_permutation)(args, seed) for seed in seeds))
 
-    permutation_statistics = parallel(jobs)
+    permutation_statistics = np.array(parallel(jobs))
+    if permutation_statistics.ndim == 1:
+        permutation_statistics = permutation_statistics.reshape(-1, 1)
+
     sample_statistic = permutation_statistics[0]
-    permutation_statistics = np.array(permutation_statistics[1:])
+    permutation_statistics = permutation_statistics[1:]
     if len(sample_statistic) == 1:
         sample_statistic = sample_statistic[0]
         sample_delta = sample_statistic
@@ -557,7 +560,7 @@ def test_silhouette(a, b, *args, metric='euclidean', **kwargs):
 
 # Calculate mutual information on discrete datasets.
 def _mutual_info_discrete(data, average_method='arithmetic'):
-    return [adjusted_mutual_info_score(data[0], data[1], average_method=average_method)]
+    return adjusted_mutual_info_score(data[0], data[1], average_method=average_method)
 
 
 # Calculate mutual information on continuous datasets.
