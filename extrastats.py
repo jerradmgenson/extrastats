@@ -14,7 +14,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import math
 from enum import Enum
 from collections import namedtuple
-from functools import reduce, partial, singledispatch
+from functools import reduce, partial, singledispatch, wraps
 from itertools import chain
 import numbers
 
@@ -336,107 +336,82 @@ def permutation_test(f, a, *args,
     return TestResult(statistic=sample_statistic, p_value=p_value)
 
 
+
+def _permutation(permutate):
+    @wraps(permutate)
+    def new_func(calc_stat, args, seed=0, shuffle=True, batch=False):
+        rng = np.random.default_rng(seed)
+        if shuffle:
+            args = permutate(args, rng)
+
+        if hasattr(calc_stat, '_accepts_random_state'):
+            calc_stat = partial(calc_stat, random_state=rng)
+
+        if batch:
+            statistics = calc_stat(*args)
+
+        else:
+            statistics = tuple([calc_stat(x) for x in args])
+
+        return statistics
+
+    return new_func
+
+
 # Evaluate a single permutation in an independent-style permutation test.
-def _ind_permutation(f, args, seed=0, shuffle=True, batch=False):
-    rng = np.random.default_rng(seed)
-    if shuffle:
-        orig_shape = [x.shape for x in args]
-        args = [arg.flatten() for arg in args]
-        orig_size = [len(arg) for arg in args]
-        args = np.concatenate(args)
-        rng.shuffle(args)
-        new_args = []
-        for size, shape in zip(orig_size, orig_shape):
-            new_arg = args[:size]
-            new_arg.shape = shape
-            args = args[size:]
-            new_args.append(new_arg)
+@_permutation
+def _ind_permutation(args, rng):
+    orig_shape = [x.shape for x in args]
+    args = [arg.flatten() for arg in args]
+    orig_size = [len(arg) for arg in args]
+    args = np.concatenate(args)
+    rng.shuffle(args)
+    new_args = []
+    for size, shape in zip(orig_size, orig_shape):
+        new_arg = args[:size]
+        new_arg.shape = shape
+        args = args[size:]
+        new_args.append(new_arg)
 
-        args = new_args
-
-    if hasattr(f, '_accepts_random_state'):
-        f = partial(f, random_state=rng)
-
-    if batch:
-        statistics = f(*args)
-
-    else:
-        statistics = tuple([f(x) for x in args])
-
-    return statistics
+    return new_args
 
 
 # Evaluate a single permutation in a pairings-style permutation test.
-def _paired_permutation(f, args, seed=0, shuffle=True, batch=False):
-    rng = np.random.default_rng(seed)
-    if shuffle:
-        rng = np.random.default_rng(seed)
-        for i in range(len(args)):
-            args[i] = np.copy(args[i])
-            rng.shuffle(args[i])
+@_permutation
+def _paired_permutation(args, rng):
+    for i in range(len(args)):
+        args[i] = np.copy(args[i])
+        rng.shuffle(args[i])
 
-    if hasattr(f, '_accepts_random_state'):
-        f = partial(f, random_state=rng)
-
-    if batch:
-        statistics = f(*args)
-
-    else:
-        statistics = tuple([f(x) for x in args])
-
-    return statistics
+    return args
 
 
 # Evaluate a single permutation in a samples-style permutation test.
-def _samples_permutation(f, args, seed=0, shuffle=True, batch=False):
-    rng = np.random.default_rng(seed)
-    if shuffle:
-        new_args = []
-        for arg in zip(*args):
-            arg = np.array(arg)
-            rng.shuffle(arg)
-            new_args.append(arg)
+@_permutation
+def _samples_permutation(args, rng):
+    new_args = []
+    for arg in zip(*args):
+        arg = np.array(arg)
+        rng.shuffle(arg)
+        new_args.append(arg)
 
-        args = np.array(new_args).T
-
-    if hasattr(f, '_accepts_random_state'):
-        f = partial(f, random_state=rng)
-
-    if batch:
-        statistics = f(*args)
-
-    else:
-        statistics = tuple([f(x) for x in args])
-
-    return statistics
+    return np.array(new_args).T
 
 
 # Evaluate a single permutation in a bootstrap-style permutation test.
-def _bootstrap_permutation(f, args, seed=0, shuffle=True, batch=False):
-    rng = np.random.default_rng(seed)
-    if shuffle:
-        orig_shape = [x.shape for x in args]
-        args = [arg.flatten() for arg in args]
-        orig_size = [len(arg) for arg in args]
-        args = np.concatenate(args)
-        new_args = []
-        for size, shape in zip(orig_size, orig_shape):
-            new_arg = rng.choice(args, size=size, replace=True)
-            new_arg.shape = shape
-            new_args.append(new_arg)
+@_permutation
+def _bootstrap_permutation(args, rng):
+    orig_shape = [x.shape for x in args]
+    args = [arg.flatten() for arg in args]
+    orig_size = [len(arg) for arg in args]
+    args = np.concatenate(args)
+    new_args = []
+    for size, shape in zip(orig_size, orig_shape):
+        new_arg = rng.choice(args, size=size, replace=True)
+        new_arg.shape = shape
+        new_args.append(new_arg)
 
-        args = new_args
-
-    if hasattr(f, '_accepts_random_state'):
-        f = partial(f, random_state=rng)
-
-    if batch:
-        statistics = f(*args)
-
-    else:
-        statistics = tuple([f(x) for x in args])
-
-    return statistics
+    return new_args
 
 
 def accepts_random_state(f):
@@ -593,7 +568,7 @@ def test_mutual_info(a, b,
                      n_neighbors=3,
                      **kwargs):
     if a_discrete and b_discrete:
-        f = partial(_mutual_info, average_method=average_method)
+        f = partial(_mutual_info_discrete, average_method=average_method)
 
     elif a_discrete:
         f = partial(_mutual_info_continuous, discrete_features=True, n_neighbors=n_neighbors)
