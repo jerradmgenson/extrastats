@@ -288,7 +288,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.406)
+        self.assertAlmostEqual(test_result.pvalue, 0.396)
         self.assertAlmostEqual(test_result.statistic, 0.008244083)
 
     def test_random_numbers_are_linearly_uncorrelated2(self):
@@ -302,7 +302,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.975)
+        self.assertAlmostEqual(test_result.pvalue, 0.977)
         self.assertAlmostEqual(test_result.statistic, 0.00027762)
 
     def test_random_numbers_are_linearly_uncorrelated3(self):
@@ -316,7 +316,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.29)
+        self.assertAlmostEqual(test_result.pvalue, 0.324)
         self.assertAlmostEqual(test_result.statistic, -0.01024487)
 
     def test_random_numbers_are_monotonically_uncorrelated1(self):
@@ -330,7 +330,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.398)
+        self.assertAlmostEqual(test_result.pvalue, 0.395)
         self.assertAlmostEqual(test_result.statistic, 0.00557355)
 
     def test_random_numbers_are_monotonically_uncorrelated2(self):
@@ -344,7 +344,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.971)
+        self.assertAlmostEqual(test_result.pvalue, 0.978)
         self.assertAlmostEqual(test_result.statistic, 0.00020594)
 
     def test_random_numbers_are_monotonically_uncorrelated3(self):
@@ -358,7 +358,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.29)
+        self.assertAlmostEqual(test_result.pvalue, 0.327)
         self.assertAlmostEqual(test_result.statistic, -0.00681552)
 
     def test_linear_function_exhibits_linear_correlation(self):
@@ -428,7 +428,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.997)
+        self.assertAlmostEqual(test_result.pvalue, 0.996)
         self.assertAlmostEqual(test_result.statistic, 2.67353702e-05)
 
     def test_sinusoidal_function_is_monotonically_uncorrelated(self):
@@ -442,7 +442,7 @@ class TestPermutationTest(unittest.TestCase):
                                                   batch=True,
                                                   permutation_type=extrastats.PermutationType.pairings)
 
-        self.assertAlmostEqual(test_result.pvalue, 0.999)
+        self.assertAlmostEqual(test_result.pvalue, 1.0)
         self.assertAlmostEqual(test_result.statistic, 2.2362236e-05)
 
 

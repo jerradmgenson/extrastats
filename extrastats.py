@@ -278,7 +278,7 @@ def permutation_test(f, a, *args,
         calc_permutation = partial(_samples_permutation, f, batch=batch)
 
     elif permutation_type == PermutationType.pairings:
-        calc_permutation = partial(_paired_permutation, f, batch=batch)
+        calc_permutation = partial(_pairings_permutation, f, batch=batch)
 
     elif permutation_type == PermutationType.bootstrap:
         calc_permutation = partial(_bootstrap_permutation, f, batch=batch)
@@ -375,8 +375,8 @@ def _ind_permutation(args, rng):
 
 # Evaluate a single permutation in a pairings-style permutation test.
 @_permutation
-def _paired_permutation(args, rng):
-    for i in range(len(args)):
+def _pairings_permutation(args, rng):
+    for i in range(len(args)-1):
         args[i] = np.copy(args[i])
         rng.shuffle(args[i])
 
