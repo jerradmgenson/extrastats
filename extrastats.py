@@ -10,11 +10,9 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
 
-
-import math
 from enum import Enum
 from collections import namedtuple
-from functools import reduce, partial, singledispatch, wraps
+from functools import partial, singledispatch, wraps
 from itertools import chain
 import numbers
 
@@ -31,10 +29,10 @@ DEFAULT_THRESHOLD = 1.5
 INT_MAX = 2147483648
 
 DistSide = Enum('DistSide', 'left right both')
-Alternative = Enum('Alternative', 'greater lesser two_sided')
+Alternative = Enum('Alternative', 'greater less two_sided')
 PermutationType = Enum('PermutationType', 'independent samples pairings bootstrap')
 
-TestResult = namedtuple('TestResult', 'statistic p_value')
+TestResult = namedtuple('TestResult', 'statistic pvalue')
 
 
 @singledispatch
@@ -331,10 +329,9 @@ def permutation_test(f, a, *args,
     else:
         raise ValueError(f'Got unexpected value for alternative: {alternative}')
 
-    p_value = np.sum(sample_delta <= permutation_deltas) / iterations
+    pvalue = np.sum(sample_delta <= permutation_deltas) / iterations
 
-    return TestResult(statistic=sample_statistic, p_value=p_value)
-
+    return TestResult(statistic=sample_statistic, pvalue=pvalue)
 
 
 def _permutation(permutate):
