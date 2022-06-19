@@ -445,6 +445,121 @@ class TestPermutationTest(unittest.TestCase):
         self.assertAlmostEqual(test_result.pvalue, 1.0)
         self.assertAlmostEqual(test_result.statistic, 2.2362236e-05)
 
+    def test_paired_means_are_equal1(self):
+        rng = np.random.default_rng(0)
+        a = rng.uniform(0, 100, 10000)
+        treatment = rng.normal(0, 1, 10000)
+        b = a + treatment
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.666)
+        self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
+        self.assertAlmostEqual(test_result.statistic[1], 49.94551775)
+
+    def test_paired_means_are_equal2(self):
+        rng = np.random.default_rng(1)
+        a = rng.uniform(0, 1000, 10000)
+        treatment = rng.normal(0, 5, 10000)
+        b = a + treatment
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.205)
+        self.assertAlmostEqual(test_result.statistic[0], 502.044169231)
+        self.assertAlmostEqual(test_result.statistic[1], 501.98310374)
+
+    def test_paired_means_are_equal3(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(-500, 500, 10000)
+        treatment = rng.normal(0, 10, 10000)
+        b = a + treatment
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.854)
+        self.assertAlmostEqual(test_result.statistic[0], 0.01720119)
+        self.assertAlmostEqual(test_result.statistic[1], 0.03449550)
+
+    def test_paired_means_are_not_equal(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(-500, 500, 10000)
+        treatment = rng.normal(5, 10, 10000)
+        b = a + treatment
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic[0], 0.01720119)
+        self.assertAlmostEqual(test_result.statistic[1], 5.0344955)
+
+    def test_paired_mean_is_less(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(-500, 500, 10000)
+        treatment = rng.normal(5, 10, 10000)
+        b = a + treatment
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  alternative=extrastats.Alternative.less,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic[0], 0.01720119)
+        self.assertAlmostEqual(test_result.statistic[1], 5.0344955)
+
+    def test_paired_mean_is_not_greater(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(-500, 500, 10000)
+        treatment = rng.normal(5, 10, 10000)
+        b = a + treatment
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  alternative=extrastats.Alternative.greater,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 1.0)
+        self.assertAlmostEqual(test_result.statistic[0], 0.01720119)
+        self.assertAlmostEqual(test_result.statistic[1], 5.0344955)
+
+    def test_paired_variance_is_not_less(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(-500, 500, 10000)
+        treatment = rng.normal(5, 10, 10000)
+        b = a + treatment
+        test_result = extrastats.permutation_test(np.var, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  alternative=extrastats.Alternative.less,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.133)
+        self.assertAlmostEqual(test_result.statistic[0], 84750.7259122)
+        self.assertAlmostEqual(test_result.statistic[1], 84826.54957818)
+
+    def test_paired_variance_is_greater(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(-500, 500, 10000)
+        b = np.where(a > 0, a - 0.1, a + 0.1)
+        test_result = extrastats.permutation_test(np.var, a, b,
+                                                  random_state=rng,
+                                                  n_jobs=-1,
+                                                  alternative=extrastats.Alternative.greater,
+                                                  permutation_type=extrastats.PermutationType.samples)
+
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic[0], 84750.7259122)
+        self.assertAlmostEqual(test_result.statistic[1], 84700.17749948)
+
 
 if __name__ == '__main__':
     unittest.main()
