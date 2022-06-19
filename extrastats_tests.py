@@ -99,7 +99,7 @@ class TestPermutationTest(unittest.TestCase):
         self.assertAlmostEqual(test_result.statistic[0], 835.50152489)
         self.assertAlmostEqual(test_result.statistic[1], 819.54902091)
 
-    def test_uniform_random_with_two_cpus(self):
+    def test_with_two_cpus(self):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(0, 100, 10000)
@@ -111,7 +111,7 @@ class TestPermutationTest(unittest.TestCase):
         self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
         self.assertAlmostEqual(test_result.statistic[1], 50.58082181)
 
-    def test_uniform_random_with_all_cpus(self):
+    def test_with_all_cpus(self):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(0, 100, 10000)
@@ -120,6 +120,30 @@ class TestPermutationTest(unittest.TestCase):
                                                   n_jobs=-1)
 
         self.assertAlmostEqual(test_result.pvalue, 0.113)
+        self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
+        self.assertAlmostEqual(test_result.statistic[1], 50.58082181)
+
+    def test_500_iterations(self):
+        rng = np.random.default_rng(0)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  iterations=500)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.112)
+        self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
+        self.assertAlmostEqual(test_result.statistic[1], 50.58082181)
+
+    def test_10000_iterations(self):
+        rng = np.random.default_rng(0)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(np.mean, a, b,
+                                                  random_state=rng,
+                                                  iterations=10000)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.1146)
         self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
         self.assertAlmostEqual(test_result.statistic[1], 50.58082181)
 
@@ -252,6 +276,174 @@ class TestPermutationTest(unittest.TestCase):
         self.assertAlmostEqual(test_result.pvalue, 0.014)
         self.assertAlmostEqual(test_result.statistic[0], 89.55954934716047)
         self.assertAlmostEqual(test_result.statistic[1], 84.51104547699504)
+
+    def test_random_numbers_are_linearly_uncorrelated1(self):
+        rng = np.random.default_rng(0)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.pearsonr(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.406)
+        self.assertAlmostEqual(test_result.statistic, 0.008244083)
+
+    def test_random_numbers_are_linearly_uncorrelated2(self):
+        rng = np.random.default_rng(1)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.pearsonr(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.975)
+        self.assertAlmostEqual(test_result.statistic, 0.00027762)
+
+    def test_random_numbers_are_linearly_uncorrelated3(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.pearsonr(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.29)
+        self.assertAlmostEqual(test_result.statistic, -0.01024487)
+
+    def test_random_numbers_are_monotonically_uncorrelated1(self):
+        rng = np.random.default_rng(0)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.kendalltau(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.398)
+        self.assertAlmostEqual(test_result.statistic, 0.00557355)
+
+    def test_random_numbers_are_monotonically_uncorrelated2(self):
+        rng = np.random.default_rng(1)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.kendalltau(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.971)
+        self.assertAlmostEqual(test_result.statistic, 0.00020594)
+
+    def test_random_numbers_are_monotonically_uncorrelated3(self):
+        rng = np.random.default_rng(2)
+        a = rng.uniform(0, 100, 10000)
+        b = rng.uniform(0, 100, 10000)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.kendalltau(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.29)
+        self.assertAlmostEqual(test_result.statistic, -0.00681552)
+
+    def test_linear_function_exhibits_linear_correlation(self):
+        rng = np.random.default_rng(2)
+        a = np.arange(0, 10000)
+        b = a * 10
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.pearsonr(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.0)
+        self.assertAlmostEqual(test_result.statistic, 1.0)
+
+    def test_linear_function_exhibits_monotonically_correlation(self):
+        rng = np.random.default_rng(2)
+        a = np.arange(0, 10000)
+        b = a * 10
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.kendalltau(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.0)
+        self.assertAlmostEqual(test_result.statistic, 1.0)
+
+    def test_linear_function_exhibits_inverse_linear_correlation(self):
+        rng = np.random.default_rng(2)
+        a = np.arange(0, 10000)
+        b = a * -10
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.pearsonr(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.0)
+        self.assertAlmostEqual(test_result.statistic, -1.0)
+
+    def test_exponential_function_exhibits_monotonic_correlation(self):
+        rng = np.random.default_rng(2)
+        a = np.arange(0, 100)
+        b = np.exp(a)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.kendalltau(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.0)
+        self.assertAlmostEqual(test_result.statistic, 1.0)
+
+    def test_sinusoidal_function_is_linearly_uncorrelated(self):
+        rng = np.random.default_rng(2)
+        a = np.arange(0, 10000)
+        b = np.sin(a)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.pearsonr(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.997)
+        self.assertAlmostEqual(test_result.statistic, 2.67353702e-05)
+
+    def test_sinusoidal_function_is_monotonically_uncorrelated(self):
+        rng = np.random.default_rng(2)
+        a = np.arange(0, 10000)
+        b = np.sin(a)
+        test_result = extrastats.permutation_test(lambda a, b: sp.stats.kendalltau(a, b)[0],
+                                                  a,
+                                                  b,
+                                                  random_state=rng,
+                                                  batch=True,
+                                                  permutation_type=extrastats.PermutationType.pairings)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.999)
+        self.assertAlmostEqual(test_result.statistic, 2.2362236e-05)
 
 
 if __name__ == '__main__':
