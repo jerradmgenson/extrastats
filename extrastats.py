@@ -160,15 +160,14 @@ def _(df: pd.DataFrame,
     jobs = (df[col].to_numpy(dtype=float) for col in df)
     outliers = parallel(delayed(aboxplt)(job) for job in jobs)
     if isinstance(threshold, numbers.Number):
-        return pd.DataFrame({k: v for k, v in zip(df.columns, outliers)})
+        return pd.DataFrame(dict(zip(df.columns, outliers)))
 
-    else:
-        dfs = dict()
-        for i, t in enumerate(threshold):
-            data = (o[i] for o in outliers)
-            dfs[t] = pd.DataFrame({k: v for k, v in zip(df.columns, data)})
+    dfs = dict()
+    for i, t in enumerate(threshold):
+        data = (o[i] for o in outliers)
+        dfs[t] = pd.DataFrame(dict(zip(df.columns, data)))
 
-        return dfs
+    return dfs
 
 
 def tail_weight(x, side=DistSide.both):
@@ -192,12 +191,12 @@ def tail_weight(x, side=DistSide.both):
         mc = medcouple(x_left)
         return mc * -1
 
-    elif side == DistSide.right:
+    if side == DistSide.right:
         x_right = x[x > np.median(x)]
         mc = medcouple(x_right)
         return mc
 
-    elif side == DistSide.both:
+    if side == DistSide.both:
         median = np.median(x)
         x_left = x[x < median]
         lmc = medcouple(x_left) * -1
@@ -205,8 +204,7 @@ def tail_weight(x, side=DistSide.both):
         rmc = medcouple(x_right)
         return (lmc + rmc) / 2
 
-    else:
-        raise ValueError(f'Unrecognized value for parameter `side`: {side}')
+    raise ValueError(f'Unrecognized value for parameter `side`: {side}')
 
 
 def permutation_test(f, a, *args,
@@ -348,7 +346,7 @@ def _permutation(permutate):
             statistics = calc_stat(*args)
 
         else:
-            statistics = tuple([calc_stat(x) for x in args])
+            statistics = tuple(calc_stat(x) for x in args)
 
         return statistics
 
@@ -571,9 +569,7 @@ def test_mutual_info(a, b,
         f = partial(_mutual_info_continuous, discrete_features=True, n_neighbors=n_neighbors)
 
     elif b_discrete:
-        c = a
-        a = b
-        b = c
+        a, b = b, a
         f = partial(_mutual_info_continuous, discrete_features=True, n_neighbors=n_neighbors)
 
     else:
