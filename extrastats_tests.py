@@ -265,8 +265,8 @@ class TestPermutationTest(unittest.TestCase):
                                                   permutation_type=extrastats.PermutationType.independent)
 
         self.assertAlmostEqual(test_result.pvalue, 0.18)
-        self.assertAlmostEqual(test_result.statistic[0], 81.41777213378225)
-        self.assertAlmostEqual(test_result.statistic[1], 84.51104547699504)
+        self.assertAlmostEqual(test_result.statistic[0], 81.427687223)
+        self.assertAlmostEqual(test_result.statistic[1], 84.514307719)
 
     def test_longtailed_iqr_is_greater(self):
         rng = np.random.default_rng(0)
@@ -280,8 +280,8 @@ class TestPermutationTest(unittest.TestCase):
                                                   permutation_type=extrastats.PermutationType.independent)
 
         self.assertAlmostEqual(test_result.pvalue, 0.014)
-        self.assertAlmostEqual(test_result.statistic[0], 89.55954934716047)
-        self.assertAlmostEqual(test_result.statistic[1], 84.51104547699504)
+        self.assertAlmostEqual(test_result.statistic[0], 89.5704559453)
+        self.assertAlmostEqual(test_result.statistic[1], 84.514307719)
 
     def test_random_numbers_are_linearly_uncorrelated1(self):
         rng = np.random.default_rng(0)
