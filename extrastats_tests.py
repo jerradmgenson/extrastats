@@ -573,25 +573,25 @@ class TestIQR(unittest.TestCase):
 
     """
 
-    def test_odd_size1(self):
-        a = np.array([7, 12, 15, 5, 1, 6, 9, 27, 19, 18, 2])
+    def test_s4(self):
+        a = np.array([3, 1, 2, 4])
         iqr = extrastats.iqr(a)
-        self.assertEqual(iqr, 13)
+        self.assertEqual(iqr, 2)
 
-    def test_odd_size2(self):
-        a = np.array([9, 3, 2, 5, 6, 11, 4, 3, 2])
+    def test_s5(self):
+        a = np.array([3, 5, 4, 2, 1])
         iqr = extrastats.iqr(a)
-        self.assertEqual(iqr, 5)
+        self.assertEqual(iqr, 3)
 
-    def test_even_size1(self):
-        a = np.array([9, 15, 7, 16, 8, 11, 21, 3, 20, 5])
+    def test_s6(self):
+        a = np.array([5, 6, 2, 3, 1, 4])
         iqr = extrastats.iqr(a)
-        self.assertEqual(iqr, 9)
+        self.assertEqual(iqr, 3)
 
-    def test_even_size2(self):
-        a = np.array([4, 1, 5, 6, 12, 8, 2, 5, 5, 3, 2, 8])
+    def test_s7(self):
+        a = np.array([4, 3, 1, 7, 5, 6, 2])
         iqr = extrastats.iqr(a)
-        self.assertEqual(iqr, 4.5)
+        self.assertEqual(iqr, 4)
 
 
 if __name__ == '__main__':
