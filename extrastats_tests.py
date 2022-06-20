@@ -593,6 +593,12 @@ class TestIQR(unittest.TestCase):
         iqr = extrastats.iqr(a)
         self.assertEqual(iqr, 4)
 
+    def test_large_array(self):
+        rng = np.random.default_rng(0)
+        a = rng.uniform(0, 100000, 100000000)
+        iqr = extrastats.iqr(a)
+        self.assertAlmostEqual(iqr, 49998.53616906)
+
 
 if __name__ == '__main__':
     unittest.main()
