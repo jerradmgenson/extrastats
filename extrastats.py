@@ -385,22 +385,32 @@ def accepts_random_state(f):
     return f
 
 
-def iqr(x, axis=None):
+def iqr(x):
     """
     Calculate the interquartile range of the given ndarray.
 
-    x: The ndarray to calculate the IQR of.
-    axis: The axis along 'x' to calculate the IQR. By default
-          a flattened version of the array is used.
+    x: The ndarray to calculate the IQR of. If the array is not 1D, it
+       will be flattened prior to calculating the IQR.
 
     Returns:
-      The IQR of 'x'. If 'x' is a 1D array or axis is None, this will be
-      a scalar value. If 'x' has more than 1 dimension and axis is not
-      None, it will be an array instead.
+      The IQR of x.
 
     """
 
-    q1, q3 = np.quantile(x, [.25, .75], axis=axis, method='inverted_cdf')
+    if x.ndim > 1:
+        x = x.flatten()
+
+    x = np.sort(x, kind='mergesort')
+    midpoint = int(len(x) / 2)
+    x_lower = x[:midpoint]
+    if len(x) % 2 == 0:
+        x_upper = x[midpoint:]
+
+    else:
+        x_upper = x[midpoint+1:]
+
+    q1 = np.median(x_lower)
+    q3 = np.median(x_upper)
     return q3 - q1
 
 
