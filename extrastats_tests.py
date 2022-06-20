@@ -600,5 +600,78 @@ class TestIQR(unittest.TestCase):
         self.assertAlmostEqual(iqr, 49998.53616906)
 
 
+class TestTailWeight(unittest.TestCase):
+    """
+    Tests for extratest.tail_weight
+
+    """
+
+    def test_standard_normal_left(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(0, 1, 1000)
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.left)
+        self.assertAlmostEqual(tw, 0.21362931)
+
+    def test_standard_normal_right(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(0, 1, 1000)
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.right)
+        self.assertAlmostEqual(tw, 0.18177707)
+
+    def test_standard_normal_both(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(0, 1, 1000)
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.both)
+        self.assertAlmostEqual(tw, 0.19770319)
+
+    def test_left_skewed_dist_left(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(100, 10, 1000)
+        b = rng.uniform(40, 60, 200)
+        a = np.concatenate([b, a])
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.left)
+        self.assertAlmostEqual(tw, 0.67276829)
+
+    def test_left_skewed_dist_right(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(100, 10, 1000)
+        b = rng.uniform(40, 60, 200)
+        a = np.concatenate([b, a])
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.right)
+        self.assertAlmostEqual(tw, 0.18488636)
+
+    def test_left_skewed_dist_both(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(100, 10, 1000)
+        b = rng.uniform(40, 60, 200)
+        a = np.concatenate([b, a])
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.both)
+        self.assertAlmostEqual(tw, 0.42882732)
+
+    def test_bimodal_left(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(50, 5, 1000)
+        b = rng.normal(100, 10, 2011)
+        a = np.concatenate([a, b])
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.left)
+        self.assertAlmostEqual(tw, -0.645384209)
+
+    def test_bimodal_right(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(50, 5, 1000)
+        b = rng.normal(100, 10, 2011)
+        a = np.concatenate([a, b])
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.right)
+        self.assertAlmostEqual(tw, 0.11993853)
+
+    def test_bimodal_both(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(50, 5, 1000)
+        b = rng.normal(100, 10, 2011)
+        a = np.concatenate([a, b])
+        tw = extrastats.tail_weight(a, side=extrastats.DistSide.both)
+        self.assertAlmostEqual(tw, -0.26272283)
+
+
 if __name__ == '__main__':
     unittest.main()

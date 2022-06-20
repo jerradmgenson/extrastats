@@ -430,22 +430,26 @@ def tail_weight(x, side=DistSide.both):
 
     """
 
+    x = np.sort(x, kind='mergesort')
+    midpoint = int(len(x) / 2)
     if side == DistSide.left:
-        x_left = x[x < np.median(x)]
-        mc = medcouple(x_left)
-        return mc * -1
+        x_left = x[:midpoint]
+        lmc = medcouple(x_left) * -1
+        return lmc
 
+    if len(x) % 2 == 0:
+        x_right = x[midpoint:]
+
+    else:
+        x_right = x[midpoint+1:]
+
+    rmc = medcouple(x_right)
     if side == DistSide.right:
-        x_right = x[x > np.median(x)]
-        mc = medcouple(x_right)
-        return mc
+        return rmc
 
     if side == DistSide.both:
-        median = np.median(x)
-        x_left = x[x < median]
+        x_left = x[:midpoint]
         lmc = medcouple(x_left) * -1
-        x_right = x[x > median]
-        rmc = medcouple(x_right)
         return (lmc + rmc) / 2
 
     raise ValueError(f'Unrecognized value for parameter `side`: {side}')
