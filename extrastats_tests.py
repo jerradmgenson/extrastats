@@ -573,10 +573,15 @@ class TestIQR(unittest.TestCase):
 
     """
 
-    def test_odd_numbers(self):
+    def test_odd_size(self):
         a = np.array([7, 12, 15, 5, 1, 6, 9, 27, 19, 18, 2])
         iqr = extrastats.iqr(a)
         self.assertEqual(iqr, 13)
+
+    def test_even_size(self):
+        a = np.array([9, 15, 7, 16, 8, 11, 21, 3, 20, 5])
+        iqr = extrastats.iqr(a)
+        self.assertEqual(iqr, 9)
 
 
 if __name__ == '__main__':

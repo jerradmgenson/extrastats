@@ -400,7 +400,7 @@ def iqr(x, axis=None):
 
     """
 
-    q1, q3 = np.quantile(x, [.25, .75], axis=axis, method='weibull')
+    q1, q3 = np.quantile(x, [.25, .75], axis=axis, method='inverted_cdf')
     return q3 - q1
 
 
