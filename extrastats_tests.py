@@ -567,5 +567,17 @@ class TestPermutationTest(unittest.TestCase):
         self.assertAlmostEqual(test_result.statistic[1], 84700.17749948)
 
 
+class TestIQR(unittest.TestCase):
+    """
+    Test cases for extrastats.iqr
+
+    """
+
+    def test_odd_numbers(self):
+        a = np.array([7, 12, 15, 5, 1, 6, 9, 27, 19, 18, 2])
+        iqr = extrastats.iqr(a)
+        self.assertEqual(iqr, 13)
+
+
 if __name__ == '__main__':
     unittest.main()

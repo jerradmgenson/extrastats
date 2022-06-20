@@ -170,43 +170,6 @@ def _(df: pd.DataFrame,
     return dfs
 
 
-def tail_weight(x, side=DistSide.both):
-    """
-    Estimate the tail weight of a dataset using the L/RMC method.
-
-    Args:
-      x: A 1-dimensional ndarray with dtype 'float64'.
-      side: Whether to calculate the tail weight for the left or right
-            side of the distribution or both. Should be a member of
-            'DistSide'.
-
-    Return:
-      A floating-point number between -1 and 1 indicating whether the
-      data is tail light (-1), normal (0), or tail heavy (+1).
-
-    """
-
-    if side == DistSide.left:
-        x_left = x[x < np.median(x)]
-        mc = medcouple(x_left)
-        return mc * -1
-
-    if side == DistSide.right:
-        x_right = x[x > np.median(x)]
-        mc = medcouple(x_right)
-        return mc
-
-    if side == DistSide.both:
-        median = np.median(x)
-        x_left = x[x < median]
-        lmc = medcouple(x_left) * -1
-        x_right = x[x > median]
-        rmc = medcouple(x_right)
-        return (lmc + rmc) / 2
-
-    raise ValueError(f'Unrecognized value for parameter `side`: {side}')
-
-
 def permutation_test(f, a, *args,
                      alternative=Alternative.two_sided,
                      permutation_type=PermutationType.bootstrap,
@@ -437,8 +400,45 @@ def iqr(x, axis=None):
 
     """
 
-    q1, q3 = np.quantile(x, [.25, .75], axis=axis)
+    q1, q3 = np.quantile(x, [.25, .75], axis=axis, method='weibull')
     return q3 - q1
+
+
+def tail_weight(x, side=DistSide.both):
+    """
+    Estimate the tail weight of a dataset using the L/RMC method.
+
+    Args:
+      x: A 1-dimensional ndarray with dtype 'float64'.
+      side: Whether to calculate the tail weight for the left or right
+            side of the distribution or both. Should be a member of
+            'DistSide'.
+
+    Return:
+      A floating-point number between -1 and 1 indicating whether the
+      data is tail light (-1), normal (0), or tail heavy (+1).
+
+    """
+
+    if side == DistSide.left:
+        x_left = x[x < np.median(x)]
+        mc = medcouple(x_left)
+        return mc * -1
+
+    if side == DistSide.right:
+        x_right = x[x > np.median(x)]
+        mc = medcouple(x_right)
+        return mc
+
+    if side == DistSide.both:
+        median = np.median(x)
+        x_left = x[x < median]
+        lmc = medcouple(x_left) * -1
+        x_right = x[x > median]
+        rmc = medcouple(x_right)
+        return (lmc + rmc) / 2
+
+    raise ValueError(f'Unrecognized value for parameter `side`: {side}')
 
 
 def test_tail_weight(a, b, *args, side=DistSide.both, **kwargs):
