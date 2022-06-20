@@ -441,19 +441,6 @@ def iqr(x, axis=None):
     return q3 - q1
 
 
-test_mean = partial(permutation_test, np.mean)
-test_gmean = partial(permutation_test, stats.mstats.gmean)
-test_hmean = partial(permutation_test, stats.hmean)
-test_variance = partial(permutation_test, np.var)
-test_skewness = partial(permutation_test, stats.skew)
-test_kurtosis = partial(permutation_test, stats.kurtosis)
-test_median = partial(permutation_test, np.median)
-test_mad = partial(permutation_test, stats.median_abs_deviation)
-test_iqr = partial(permutation_test, iqr)
-test_medcouple = partial(permutation_test, medcouple)
-test_mode = partial(permutation_test, stats.mode)
-
-
 def test_tail_weight(a, b, *args, side=DistSide.both, **kwargs):
     """
     Conduct a permutation test of the tail weights of datasets a, b, c, etc.
