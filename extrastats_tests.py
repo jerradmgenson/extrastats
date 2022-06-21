@@ -697,5 +697,19 @@ class TestTailWeight(unittest.TestCase):
         self.assertAlmostEqual(tw, 0.33504965)
 
 
+class TestAcceptsRandomState(unittest.TestCase):
+    """
+    Tests for extrastats.accepts_random_state
+
+    """
+
+    def test_has_attr(self):
+        @extrastats.accepts_random_state
+        def test():
+            pass
+
+        self.assertTrue(hasattr(test, '_accepts_random_state'))
+
+
 if __name__ == '__main__':
     unittest.main()
