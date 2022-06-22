@@ -711,5 +711,26 @@ class TestAcceptsRandomState(unittest.TestCase):
         self.assertTrue(hasattr(test, '_accepts_random_state'))
 
 
+class TestTestTailWeight(unittest.TestCase):
+    """
+    Test cases for extrastats.test_tail_weight
+
+    """
+
+    def test_standard_normal_vs_long_tailed_less(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(0, 10, 2000)
+        b = rng.uniform(100, 2000, 300)
+        c = rng.uniform(-2000, 100, 300)
+        b = np.concatenate([a, b, c])
+        result = extrastats.test_tail_weight(a, b,
+                                             alternative=extrastats.Alternative.less,
+                                             random_state=rng)
+
+        self.assertAlmostEqual(result.pvalue, 0)
+        self.assertAlmostEqual(result.statistic[0], 0.19348302)
+        self.assertAlmostEqual(result.statistic[1], 0.67049582)
+
+
 if __name__ == '__main__':
     unittest.main()
