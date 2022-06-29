@@ -717,19 +717,79 @@ class TestTestTailWeight(unittest.TestCase):
 
     """
 
-    def test_standard_normal_vs_long_tailed_less(self):
+    def test_long_tailed_vs_normal(self):
         rng = np.random.default_rng(0)
         a = rng.normal(0, 10, 2000)
         b = rng.uniform(100, 2000, 300)
         c = rng.uniform(-2000, 100, 300)
         b = np.concatenate([a, b, c])
-        result = extrastats.test_tail_weight(a, b,
-                                             alternative=extrastats.Alternative.less,
+        result = extrastats.test_tail_weight(b, a,
+                                             alternative=extrastats.Alternative.greater,
                                              random_state=rng)
 
         self.assertAlmostEqual(result.pvalue, 0)
-        self.assertAlmostEqual(result.statistic[0], 0.19348302)
-        self.assertAlmostEqual(result.statistic[1], 0.67049582)
+        self.assertAlmostEqual(result.statistic[0], 0.67049582)
+        self.assertAlmostEqual(result.statistic[1], 0.19348302)
+
+    def test_normal_vs_normal(self):
+        rng = np.random.default_rng(1)
+        a = rng.normal(0, 10, 2000)
+        b = rng.normal(100, 30, 2000)
+        result = extrastats.test_tail_weight(a, b,
+                                             alternative=extrastats.Alternative.two_sided,
+                                             random_state=rng)
+
+        self.assertAlmostEqual(result.pvalue, 0.687)
+        self.assertAlmostEqual(result.statistic[0], 0.19164881)
+        self.assertAlmostEqual(result.statistic[1], 0.2066647)
+
+    def test_normal_vs_bimodal(self):
+        rng = np.random.default_rng(2)
+        a = rng.normal(0, 10, 2000)
+        b = np.concatenate([rng.normal(-10, 10, 1000),
+                            rng.normal(10, 10, 1000)])
+
+        result = extrastats.test_tail_weight(a, b,
+                                             alternative=extrastats.Alternative.two_sided,
+                                             random_state=rng)
+
+        self.assertAlmostEqual(result.pvalue, 0.111)
+        self.assertAlmostEqual(result.statistic[0], 0.20415620)
+        self.assertAlmostEqual(result.statistic[1], 0.14910636)
+
+    def test_normal_vs_bimodal_with_outliers(self):
+        rng = np.random.default_rng(3)
+        a = np.concatenate([rng.normal(-10, 10, 1000),
+                            rng.normal(10, 10, 1000)])
+
+        b = np.concatenate([rng.normal(-10, 10, 1000),
+                            rng.normal(10, 10, 1000),
+                            rng.uniform(800, 900, 150)])
+
+        result = extrastats.test_tail_weight(a, b,
+                                             alternative=extrastats.Alternative.less,
+                                             side=extrastats.DistSide.right,
+                                             random_state=rng)
+
+        self.assertAlmostEqual(result.pvalue, 0.003)
+        self.assertAlmostEqual(result.statistic[0], 0.11833148)
+        self.assertAlmostEqual(result.statistic[1], 0.2732878)
+
+    def test_normal_vs_normal_vs_bimodal(self):
+        rng = np.random.default_rng(4)
+        a = rng.normal(0, 10, 2000)
+        b = rng.normal(100, 30, 2000)
+        c = np.concatenate([rng.normal(-10, 10, 1000),
+                            rng.normal(10, 10, 1000)])
+
+        result = extrastats.test_tail_weight(a, b, c,
+                                             random_state=rng,
+                                             n_jobs=-1)
+
+        self.assertAlmostEqual(result.pvalue, 0.017)
+        self.assertAlmostEqual(result.statistic[0], 0.19930059)
+        self.assertAlmostEqual(result.statistic[1], 0.20404219)
+        self.assertAlmostEqual(result.statistic[2], 0.11431734)
 
 
 if __name__ == '__main__':
