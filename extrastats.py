@@ -585,7 +585,7 @@ def test_mutual_info(a, b,
 
 def standard_error(f, x, iterations=1000, random_state=None):
     """
-    Calculate the standard error of a statistic on a sample.
+    Calculate the standard error of a statistic f of a sample x.
 
     Args:
       f: A function that takes a single ndarray-like object and returns
@@ -618,12 +618,27 @@ def standard_error(f, x, iterations=1000, random_state=None):
     return np.std(bootstrap_statistics) / math.sqrt(len(x))
 
 
-def hmean(x, w=None):
+def gcv(x):
     """
-    Calculate the weighted harmonic mean for a sample.
+    Calculate the geometric coefficient of variation for a sample x.
 
     Args:
-      x: An ndarray of data to calculate the harmonic mean on.
+      x: An ndarray array of data to calculate the gcv of.
+
+    Returns:
+      The gcv of x.
+
+    """
+
+    return math.sqrt(math.expm1(np.var(np.log(x))))
+
+
+def hmean(x, w=None):
+    """
+    Calculate the weighted harmonic mean for a sample x.
+
+    Args:
+      x: An ndarray of data to calculate the harmonic mean of.
       w: An ndarray of weights. If not given, the unweighted harmonic
          mean will be calculated instead.
 
@@ -639,3 +654,19 @@ def hmean(x, w=None):
 
     else:
         return 1 / (np.sum(1 / x) / len(x))
+
+
+def hvar(x):
+    """
+    Calculate the harmonic variability for a sample x.
+
+    Args:
+      x: An ndarray of data to calculate the harmonic variability of.
+
+    Returns:
+      The harmonic variability of x.
+
+    """
+
+    x_inv = 1 / x
+    return (np.var(x_inv)**2 / np.mean(x_inv)**4) / len(x)
