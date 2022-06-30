@@ -601,6 +601,7 @@ def standard_error(f, x, iterations=1000, random_state=None):
 
     """
 
+    x = np.array(x)
     if isinstance(random_state, int):
         rng = np.random.default_rng(seed=random_state)
 
@@ -615,3 +616,26 @@ def standard_error(f, x, iterations=1000, random_state=None):
 
     bootstrap_statistics = [f(rng.choice(x, size=len(x))) for _ in range(iterations)]
     return np.std(bootstrap_statistics) / math.sqrt(len(x))
+
+
+def hmean(x, w=None):
+    """
+    Calculate the weighted harmonic mean for a sample.
+
+    Args:
+      x: An ndarray of data to calculate the harmonic mean on.
+      w: An ndarray of weights. If not given, the unweighted harmonic
+         mean will be calculated instead.
+
+    Returns:
+      The harmonic mean of x given weights w.
+
+    """
+
+    x = np.array(x)
+    if w is not None:
+        w = np.array(w)
+        return 1 / (np.sum(w * (1 / x)) / np.sum(w))
+
+    else:
+        return 1 / (np.sum(1 / x) / len(x))
