@@ -10,11 +10,12 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
 
+import math
+import numbers
 from enum import Enum
 from collections import namedtuple
 from functools import partial, singledispatch, wraps
 from itertools import chain
-import numbers
 
 import numpy as np
 import scipy as sp
@@ -580,3 +581,37 @@ def test_mutual_info(a, b,
                             batch=True,
                             permutation_type=PermutationType.pairings,
                             **kwargs)
+
+
+def standard_error(f, x, iterations=1000, random_state=None):
+    """
+    Calculate the standard error of a statistic on a sample.
+
+    Args:
+      f: A function that takes a single ndarray-like object and returns
+         a scalar value representing a sample statistic.
+      x: A ndarray of data to use in calculating the standard error of f.
+      iterations: Number of bootstrap resamples to perform. Default is 1000.
+      random_state: Either an integer >= 0 or an instance of
+                    numpy.random.Generator. Used to attain reproducible
+                    behavior.
+
+    Returns:
+      A float representing the standard error of f of x.
+
+    """
+
+    if isinstance(random_state, int):
+        rng = np.random.default_rng(seed=random_state)
+
+    elif isinstance(random_state, np.random.Generator):
+        rng = random_state
+
+    elif random_state is None:
+        rng = np.random.default_rng()
+
+    else:
+        raise ValueError(f'Got unexpected value for random_state: {random_state}')
+
+    bootstrap_statistics = [f(rng.choice(x, size=len(x))) for _ in range(iterations)]
+    return np.std(bootstrap_statistics) / math.sqrt(len(x))
