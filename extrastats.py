@@ -25,6 +25,7 @@ from joblib import Parallel, delayed
 from robustats import medcouple
 from sklearn.metrics import silhouette_score, adjusted_mutual_info_score
 from sklearn.feature_selection import mutual_info_regression
+from kneed import KneeLocator
 
 DEFAULT_THRESHOLD = 1.5
 INT_MAX = 2147483648
@@ -670,3 +671,36 @@ def hvar(x):
 
     x_inv = 1 / x
     return (np.var(x_inv)**2 / np.mean(x_inv)**4) / len(x)
+
+
+OptrimResult = namedtuple('OptrimResult', 'statistic standard_error trim_amount')
+
+
+def optrim(f, x,
+           max_trim_amount=.2,
+           sensitivity=1,
+           se_iterations=1000,
+           random_state=None):
+    x = np.array(x)
+    results = []
+    for trim_amount in range(1, int(max_trim_amount * 100)+1):
+        trim_frac = trim_amount / 100
+        lower_quantile = trim_frac / 2
+        quantiles = lower_quantile, 1 - lower_quantile
+        lower_threshold, upper_threshold = np.quantile(x, quantiles)
+        x_trim = x[np.logical_and(x > lower_threshold, x < upper_threshold)]
+        results.append(OptrimResult(statistic=f(x_trim),
+                                    standard_error=standard_error(f, x_trim,
+                                                                  iterations=se_iterations,
+                                                                  random_state=random_state),
+                                    trim_amount=trim_frac))
+
+    x = [r.trim_amount for r in results]
+    y = [r.standard_error for r in results]
+    knee_locator = KneeLocator(x, y,
+                               curve='convex',
+                               direction='decreasing',
+                               online=True,
+                               S=sensitivity)
+
+    return results[int(knee_locator.knee * 100) - 1]
