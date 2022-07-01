@@ -706,12 +706,17 @@ def optrim(f, x,
 
     x = np.array(x)
     results = []
-    for trim_amount in range(1, int(max_trim_amount * 100)+1):
+    for trim_amount in range(int(max_trim_amount * 100)+1):
         trim_frac = trim_amount / 100
-        lower_quantile = trim_frac / 2
-        quantiles = lower_quantile, 1 - lower_quantile
-        lower_threshold, upper_threshold = np.quantile(x, quantiles)
-        x_trim = x[np.logical_and(x > lower_threshold, x < upper_threshold)]
+        if trim_amount == 0:
+            x_trim = x
+
+        else:
+            lower_quantile = trim_frac / 2
+            quantiles = lower_quantile, 1 - lower_quantile
+            lower_threshold, upper_threshold = np.quantile(x, quantiles)
+            x_trim = x[np.logical_and(x > lower_threshold, x < upper_threshold)]
+
         results.append(OptrimResult(statistic=f(x_trim),
                                     standard_error=standard_error(f, x_trim,
                                                                   iterations=se_iterations,
@@ -726,4 +731,4 @@ def optrim(f, x,
                                online=True,
                                S=sensitivity)
 
-    return results[int(knee_locator.knee * 100) - 1]
+    return results[int(knee_locator.knee * 100)]
