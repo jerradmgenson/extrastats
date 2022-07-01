@@ -673,6 +673,49 @@ def hvar(x):
     return (np.var(x_inv)**2 / np.mean(x_inv)**4) / len(x)
 
 
+def xtrim(x, trim_amount=.1):
+    """
+    Trim an equal amount of data from the left and right sides of x.
+
+    Args:
+      x: An ndarray of values to trim data from.
+      trim_amount: The amount of data to trim from x before calculating
+                   the statistic. Default is 0.1.
+
+    Returns:
+      The trimmed dataset x.
+
+    """
+
+    x = np.array(x)
+    lower_quantile = trim_amount / 2
+    quantiles = lower_quantile, 1 - lower_quantile
+    lower_threshold, upper_threshold = np.quantile(x, quantiles)
+    trimmed_x = x[np.logical_and(x > lower_threshold, x < upper_threshold)]
+
+    return trimmed_x
+
+
+def ftrim(f, x, trim_amount=.1):
+    """
+    Calculate the trimmed statistic f of dataset x.
+
+    Args:
+      f: A function that takes a single ndarray-like object and returns
+         a scalar value representing a sample statistic.
+      x: A ndarray of data to calculate the trimmed statistic of.
+      trim_amount: The amount of data to trim from x before calculating
+                   the statistic. Default is 0.1.
+
+    Returns:
+      The trimmed statistic f of x.
+
+    """
+
+    trimmed_x = xtrim(x, trim_amount=trim_amount)
+    return f(trimmed_x)
+
+
 OptrimResult = namedtuple('OptrimResult', 'statistic standard_error trim_amount')
 
 
@@ -709,16 +752,13 @@ def optrim(f, x,
     for trim_amount in range(int(max_trim_amount * 100)+1):
         trim_frac = trim_amount / 100
         if trim_amount == 0:
-            x_trim = x
+            trimmed_x = x
 
         else:
-            lower_quantile = trim_frac / 2
-            quantiles = lower_quantile, 1 - lower_quantile
-            lower_threshold, upper_threshold = np.quantile(x, quantiles)
-            x_trim = x[np.logical_and(x > lower_threshold, x < upper_threshold)]
+            trimmed_x = xtrim(x, trim_amount=trim_frac)
 
-        results.append(OptrimResult(statistic=f(x_trim),
-                                    standard_error=standard_error(f, x_trim,
+        results.append(OptrimResult(statistic=f(trimmed_x),
+                                    standard_error=standard_error(f, trimmed_x,
                                                                   iterations=se_iterations,
                                                                   random_state=random_state),
                                     trim_amount=trim_frac))
