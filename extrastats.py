@@ -677,10 +677,33 @@ OptrimResult = namedtuple('OptrimResult', 'statistic standard_error trim_amount'
 
 
 def optrim(f, x,
-           max_trim_amount=.2,
+           max_trim_amount=.25,
            sensitivity=1,
            se_iterations=1000,
            random_state=None):
+    """
+    Calculate a trimmed statistic f of dataset x, using the standard error
+    and the kneedle method to find the optimal trim amount.
+
+    Args:
+      f: A function that takes a single ndarray-like object and returns
+         a scalar value representing a sample statistic.
+      x: A ndarray of data to calculate the trimmed statistic of.
+      max_trim_amount: The maximum amount of data that can be trimmed
+                       from x. Default is 0.25.
+      sensitivity: The S parameter of the kneedle algorithm. Default is 1.
+      se_iterations: Number of resamples to use for calculating the
+                     standard error. Default is 1000.
+      random_state: Either an integer >= 0 or an instance of
+                    numpy.random.Generator. Used to attain reproducible
+                    behavior.
+
+    Returns:
+      An OptrimResult object, which contains the trimmed statistic of x,
+      the standard error of the statistic, and the trim amount.
+
+    """
+
     x = np.array(x)
     results = []
     for trim_amount in range(1, int(max_trim_amount * 100)+1):
