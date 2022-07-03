@@ -20,10 +20,9 @@ from itertools import chain
 import numpy as np
 import scipy as sp
 import pandas as pd
-from scipy import stats
 from joblib import Parallel, delayed
 from robustats import medcouple
-from sklearn.metrics import silhouette_score, adjusted_mutual_info_score
+from sklearn.metrics import adjusted_mutual_info_score
 from sklearn.feature_selection import mutual_info_regression
 from kneed import KneeLocator
 
@@ -89,17 +88,17 @@ def adjusted_boxplot(x,
         x0 = rng.choice(x0, size=int(round(frac*len(x))), replace=False)
 
     q1, q3 = np.quantile(x0, [.25, .75])
-    iqr = q3 - q1
+    iqr_ = q3 - q1
     mc = medcouple(x0)
 
     def apply_threshold(threshold):
         if mc >= 0:
-            lower_fence = q1 - threshold * np.exp(-3.5 * mc) * iqr
-            upper_fence = q3 + threshold * np.exp(4 * mc) * iqr
+            lower_fence = q1 - threshold * np.exp(-3.5 * mc) * iqr_
+            upper_fence = q3 + threshold * np.exp(4 * mc) * iqr_
 
         else:
-            lower_fence = q1 - threshold * np.exp(-4 * mc) * iqr
-            upper_fence = q3 + threshold * np.exp(3.5 * mc) * iqr
+            lower_fence = q1 - threshold * np.exp(-4 * mc) * iqr_
+            upper_fence = q3 + threshold * np.exp(3.5 * mc) * iqr_
 
         outliers = (x < lower_fence) | (x > upper_fence)
         assert outliers.shape == x.shape
@@ -279,7 +278,8 @@ def permutation_test(f, a, *args,
 
     elif len(args) > 2 or alternative == Alternative.two_sided:
         sample_delta = np.max(sample_statistic) - np.min(sample_statistic)
-        permutation_deltas = np.max(permutation_statistics, axis=1) - np.min(permutation_statistics, axis=1)
+        permutation_deltas = (np.max(permutation_statistics, axis=1)
+                              - np.min(permutation_statistics, axis=1))
 
     elif alternative == Alternative.greater:
         sample_delta = sample_statistic[0] - sample_statistic[1]
@@ -457,93 +457,6 @@ def tail_weight(x, side=DistSide.both):
     raise ValueError(f'Unrecognized value for parameter `side`: {side}')
 
 
-def test_tail_weight(a, b, *args, side=DistSide.both, **kwargs):
-    """
-    Conduct a permutation test of the tail weights of datasets a, b, c, etc.
-
-    Args:
-      a: An ndarray representing the first dataset under study.
-      b: An ndarray representing the second dataset under study.
-      *args: ndarrays representing subsequent datasets in the study.
-      side: See the documentation of 'tail_weight' for the meaning of
-            this parameter.
-      **kwargs: Additional keyword arguments will be passed through to
-                'permutation_test'.
-
-    Returns:
-      An instance of 'TestResult' where the statistic is the tail weight
-      of each ndarray passed to 'test_tail_weight'.
-
-    """
-
-    return permutation_test(partial(tail_weight, side=side), a, b, *args, **kwargs)
-
-
-def test_trimmed_mean(a, b, *args, proportiontocut=0.1, **kwargs):
-    """
-    Conduct a permutation test of the trimmed means of datasets a, b, c, etc.
-
-    Args:
-      a: An ndarray representing the first dataset under study.
-      b: An ndarray representing the second dataset under study.
-      *args: ndarrays representing subsequent datasets in the study.
-      proportiontocut: See the documentation of 'scipy.stats.trim_mean'
-                       for the meaning of this parameter.
-      **kwargs: Additional keyword arguments will be passed through to
-                'permutation_test'.
-
-    Returns:
-      An instance of 'TestResult' where the statistic is the trimmed mean
-      of each ndarray passed to 'test_trimmed_mean'.
-
-    """
-
-    return permutation_test(partial(stats.trim_mean, proportiontocut=proportiontocut),
-                            a,
-                            b,
-                            *args,
-                            **kwargs)
-
-
-# Calculate Silhouette Coefficient over axis 1 of a 2D ndarray.
-def _silhouette_coeff(*X, metric='euclidean'):
-    y = [np.full(len(a), i) for i, a in enumerate(X)]
-    y = np.concatenate(y)
-    X = np.concatenate(X)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-
-    return silhouette_score(X, y, metric=metric)
-
-
-def test_silhouette(a, b, *args, metric='euclidean', **kwargs):
-    """
-    Conduct a permutation test of the Silhouette Coefficient of datasets
-    a, b, c, etc.
-
-    Args:
-      a: An ndarray representing the first dataset under study.
-      b: An ndarray representing the second dataset under study.
-      *args: ndarrays representing subsequent datasets in the study.
-      metric: See the documentation of 'sklearn.metrics.silhouette_score'
-              for the meaning of this parameter.
-      **kwargs: Additional keyword arguments will be passed through to
-                'permutation_test'.
-
-    Returns:
-      An instance of 'TestResult' where the statistic is the Silhouette
-      Coefficient calculated on the ndarrays passed to 'test_silhouette'.
-
-    """
-
-    return permutation_test(partial(_silhouette_coeff, metric=metric),
-                            a,
-                            b,
-                            *args,
-                            batch=True,
-                            **kwargs)
-
-
 # Calculate mutual information on discrete datasets.
 def _mutual_info_discrete(a, b, average_method='arithmetic'):
     return adjusted_mutual_info_score(a, b, average_method=average_method)
@@ -565,6 +478,29 @@ def test_mutual_info(a, b,
                      average_method='arithmetic',
                      n_neighbors=3,
                      **kwargs):
+    """
+    Conduct a permutation test of mutual information between groups a and b.
+
+    Args:
+      a: An ndarray of data for group a.
+      b: An ndarray of data for group b.
+      a_discrete: Indicates that group a represents a discrete variable.
+                  Default is True.
+      b_discrete: Indicates that group b represents a discrete variable.
+                  Default is True.
+      average_method: The averaging method to use when at least one of the
+                      groups represents a continuous variable.
+                      Default is 'arithmetic'.
+      n_neighbors: Value for k when calculating k-nearest neighbors distances
+                   for continuous variables. Default is 3.
+      **kwargs: Any additional keyword arguments are passed along to
+                permutation_test.
+
+    Returns:
+      An instance of TestResult. See permutation_test docstring for details.
+
+    """
+
     if a_discrete and b_discrete:
         f = partial(_mutual_info_discrete, average_method=average_method)
 
@@ -653,8 +589,7 @@ def hmean(x, w=None):
         w = np.array(w)
         return 1 / (np.sum(w * (1 / x)) / np.sum(w))
 
-    else:
-        return 1 / (np.sum(1 / x) / len(x))
+    return 1 / (np.sum(1 / x) / len(x))
 
 
 def hvar(x):
