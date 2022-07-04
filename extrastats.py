@@ -27,7 +27,7 @@ from sklearn.feature_selection import mutual_info_regression
 from kneed import KneeLocator
 
 DEFAULT_THRESHOLD = 1.5
-INT_MAX = 2147483648
+MAX_INT = 2147483648
 
 DistSide = Enum('DistSide', 'left right both')
 Alternative = Enum('Alternative', 'greater less two_sided')
@@ -248,7 +248,7 @@ def permutation_test(f, a, *args,
     else:
         raise ValueError(f'Got unexpected value for permutation_type: {permutation_type}')
 
-    if isinstance(random_state, int):
+    if isinstance(random_state, (int, np.int64)):
         rng = np.random.default_rng(seed=random_state)
 
     elif isinstance(random_state, np.random.Generator):
@@ -260,7 +260,7 @@ def permutation_test(f, a, *args,
     else:
         raise ValueError(f'Got unexpected value for random_state: {random_state}')
 
-    seeds = rng.integers(0, INT_MAX, iterations)
+    seeds = rng.integers(0, MAX_INT, iterations)
     sample_statistic = delayed(calc_permutation)(args, shuffle=False)
     jobs = chain([sample_statistic],
                  (delayed(calc_permutation)(args, seed) for seed in seeds))
@@ -477,6 +477,7 @@ def test_mutual_info(a, b,
                      b_discrete=True,
                      average_method='arithmetic',
                      n_neighbors=3,
+                     random_state=None,
                      **kwargs):
     """
     Conduct a permutation test of mutual information between groups a and b.
@@ -493,6 +494,9 @@ def test_mutual_info(a, b,
                       Default is 'arithmetic'.
       n_neighbors: Value for k when calculating k-nearest neighbors distances
                    for continuous variables. Default is 3.
+      random_state: Either an integer >= 0 or an instance of
+                    numpy.random.Generator. Used to attain reproducible
+                    behavior. Default is None.
       **kwargs: Any additional keyword arguments are passed along to
                 permutation_test.
 
@@ -501,22 +505,37 @@ def test_mutual_info(a, b,
 
     """
 
+    rs = random_state
+    if isinstance(random_state, np.random.Generator):
+        rs = random_state.integers(0, MAX_INT)
+
     if a_discrete and b_discrete:
-        f = partial(_mutual_info_discrete, average_method=average_method)
+        f = partial(_mutual_info_discrete,
+                    average_method=average_method)
 
     elif a_discrete:
-        f = partial(_mutual_info_continuous, discrete_features=True, n_neighbors=n_neighbors)
+        f = partial(_mutual_info_continuous,
+                    discrete_features=True,
+                    n_neighbors=n_neighbors,
+                    random_state=rs)
 
     elif b_discrete:
         a, b = b, a
-        f = partial(_mutual_info_continuous, discrete_features=True, n_neighbors=n_neighbors)
+        f = partial(_mutual_info_continuous,
+                    discrete_features=True,
+                    n_neighbors=n_neighbors,
+                    random_state=rs)
 
     else:
-        f = partial(_mutual_info_continuous, discrete_features=False, n_neighbors=n_neighbors)
+        f = partial(_mutual_info_continuous,
+                    discrete_features=False,
+                    n_neighbors=n_neighbors,
+                    random_state=rs)
 
     return permutation_test(f, a, b,
                             batch=True,
                             permutation_type=PermutationType.pairings,
+                            random_state=random_state,
                             **kwargs)
 
 

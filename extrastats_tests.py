@@ -711,6 +711,100 @@ class TestAcceptsRandomState(unittest.TestCase):
         self.assertTrue(hasattr(test, '_accepts_random_state'))
 
 
+class TestMutualInfo(unittest.TestCase):
+    """
+    Tests for extrastats.test_mutual_info
+
+    """
+
+    def test_correctly_identifies_discrete_dependent_variables(self):
+        a = np.repeat(np.arange(1, 11), 100)
+        b = a % 2
+        test_result = extrastats.test_mutual_info(a, b, random_state=0)
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic, 0.46112849)
+
+    def test_correctly_identifies_continuous_dependent_variables(self):
+        a = np.repeat(np.arange(1, 11, 0.1), 10)
+        b = np.sin(a)
+        test_result = extrastats.test_mutual_info(a, b,
+                                                  a_discrete=False,
+                                                  b_discrete=False,
+                                                  random_state=0)
+
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic, 4.66252284)
+
+    def test_correctly_identifies_mixed_dependent_variables1(self):
+        a = np.repeat(np.arange(1, 11), 10)
+        b = np.sin(a)
+        test_result = extrastats.test_mutual_info(a, b,
+                                                  a_discrete=True,
+                                                  b_discrete=False,
+                                                  random_state=0)
+
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic, 2.34840926)
+
+    def test_correctly_identifies_mixed_dependent_variables2(self):
+        a = np.repeat(np.arange(1, 11), 10)
+        b = np.sin(a)
+        test_result = extrastats.test_mutual_info(b, a,
+                                                  a_discrete=False,
+                                                  b_discrete=True,
+                                                  random_state=0)
+
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic, 2.34840926)
+
+    def test_correctly_identifies_discrete_independent_variables(self):
+        a = np.repeat(np.arange(1, 11), 100)
+        b = a % 2
+        rng = np.random.default_rng(0)
+        rng.shuffle(b)
+        test_result = extrastats.test_mutual_info(a, b, random_state=rng)
+        self.assertAlmostEqual(test_result.pvalue, 0.719)
+        self.assertAlmostEqual(test_result.statistic, 0.00050649)
+
+    def test_correctly_identifies_continuous_independent_variables(self):
+        a = np.repeat(np.arange(1, 11, 0.1), 10)
+        b = np.sin(a)
+        rng = np.random.default_rng(0)
+        rng.shuffle(b)
+        test_result = extrastats.test_mutual_info(a, b,
+                                                  a_discrete=False,
+                                                  b_discrete=False,
+                                                  random_state=rng)
+
+        self.assertAlmostEqual(test_result.pvalue, 0.439)
+        self.assertAlmostEqual(test_result.statistic, 0.003932137)
+
+    def test_correctly_identifies_mixed_independent_variables1(self):
+        a = np.repeat(np.arange(1, 11), 10)
+        b = np.sin(a)
+        rng = np.random.default_rng(0)
+        rng.shuffle(b)
+        test_result = extrastats.test_mutual_info(a, b,
+                                                  a_discrete=True,
+                                                  b_discrete=False,
+                                                  random_state=0)
+
+        self.assertAlmostEqual(test_result.pvalue, 1.0)
+        self.assertAlmostEqual(test_result.statistic, 0.0)
+
+    def test_correctly_identifies_mixed_independent_variables2(self):
+        a = np.repeat(np.arange(1, 11), 10)
+        b = np.sin(a)
+        rng = np.random.default_rng(0)
+        rng.shuffle(a)
+        test_result = extrastats.test_mutual_info(b, a,
+                                                  a_discrete=False,
+                                                  b_discrete=True,
+                                                  random_state=0)
+
+        self.assertAlmostEqual(test_result.pvalue, 1.0)
+        self.assertAlmostEqual(test_result.statistic, 0.0)
+
 
 if __name__ == '__main__':
     unittest.main()
