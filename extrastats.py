@@ -29,21 +29,23 @@ from kneed import KneeLocator
 DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
 
-DistSide = Enum('DistSide', 'left right both')
-Alternative = Enum('Alternative', 'greater less two_sided')
-PermutationType = Enum('PermutationType', 'independent samples pairings bootstrap')
+DistSide = Enum("DistSide", "left right both")
+Alternative = Enum("Alternative", "greater less two_sided")
+PermutationType = Enum("PermutationType", "independent samples pairings bootstrap")
 
-TestResult = namedtuple('TestResult', 'statistic pvalue')
+TestResult = namedtuple("TestResult", "statistic pvalue")
 
 
 @singledispatch
-def adjusted_boxplot(x,
-                     threshold=DEFAULT_THRESHOLD,
-                     frac=1,
-                     sparse=False,
-                     n_jobs=1,
-                     parallel=None,
-                     random_state=None):
+def adjusted_boxplot(
+    x,
+    threshold=DEFAULT_THRESHOLD,
+    frac=1,
+    sparse=False,
+    n_jobs=1,
+    parallel=None,
+    random_state=None,
+):
     """
     Apply the adjusted boxplot method on an array of numeric values.
 
@@ -69,7 +71,7 @@ def adjusted_boxplot(x,
     """
 
     if x.ndim > 2:
-        raise ValueError('adjusted_boxplot called with x.ndim > 2')
+        raise ValueError("adjusted_boxplot called with x.ndim > 2")
 
     x0 = x[~np.isnan(x)]
     if isinstance(random_state, int):
@@ -82,12 +84,12 @@ def adjusted_boxplot(x,
         rng = np.random.default_rng()
 
     else:
-        raise ValueError(f'Got unexpected value for random_state: {random_state}')
+        raise ValueError(f"Got unexpected value for random_state: {random_state}")
 
     if frac < 1:
-        x0 = rng.choice(x0, size=int(round(frac*len(x))), replace=False)
+        x0 = rng.choice(x0, size=int(round(frac * len(x))), replace=False)
 
-    q1, q3 = np.quantile(x0, [.25, .75])
+    q1, q3 = np.quantile(x0, [0.25, 0.75])
     iqr_ = q3 - q1
     mc = medcouple(x0)
 
@@ -116,13 +118,15 @@ def adjusted_boxplot(x,
 
 
 @adjusted_boxplot.register
-def _(df: pd.DataFrame,
-      threshold=DEFAULT_THRESHOLD,
-      frac=1,
-      sparse=False,
-      n_jobs=1,
-      parallel=None,
-      random_state=None):
+def _(
+    df: pd.DataFrame,
+    threshold=DEFAULT_THRESHOLD,
+    frac=1,
+    sparse=False,
+    n_jobs=1,
+    parallel=None,
+    random_state=None,
+):
     """
     An adjusted_boxplot variant that takes a pandas dataframe and return
     a nested list of boolean values indicating which values in each
@@ -153,10 +157,9 @@ def _(df: pd.DataFrame,
     if parallel is None:
         parallel = Parallel(n_jobs=n_jobs)
 
-    aboxplt = partial(adjusted_boxplot,
-                      threshold=threshold,
-                      frac=frac,
-                      random_state=random_state)
+    aboxplt = partial(
+        adjusted_boxplot, threshold=threshold, frac=frac, random_state=random_state
+    )
 
     jobs = (df[col].to_numpy(dtype=float) for col in df)
     outliers = parallel(delayed(aboxplt)(job) for job in jobs)
@@ -171,14 +174,18 @@ def _(df: pd.DataFrame,
     return dfs
 
 
-def permutation_test(f, a, *args,
-                     alternative=Alternative.two_sided,
-                     permutation_type=PermutationType.bootstrap,
-                     iterations=1000,
-                     batch=False,
-                     n_jobs=1,
-                     parallel=None,
-                     random_state=None):
+def permutation_test(
+    f,
+    a,
+    *args,
+    alternative=Alternative.two_sided,
+    permutation_type=PermutationType.bootstrap,
+    iterations=1000,
+    batch=False,
+    n_jobs=1,
+    parallel=None,
+    random_state=None,
+):
     """
     Conduct a randomized permutation test on the given datasets.
 
@@ -235,7 +242,9 @@ def permutation_test(f, a, *args,
         arg0_len = len(args[0])
         for arg in args:
             if len(arg) != arg0_len:
-                raise ValueError('Samples must be the same size in a samples permutation test.')
+                raise ValueError(
+                    "Samples must be the same size in a samples permutation test."
+                )
 
         calc_permutation = partial(_samples_permutation, f, batch=batch)
 
@@ -246,7 +255,9 @@ def permutation_test(f, a, *args,
         calc_permutation = partial(_bootstrap_permutation, f, batch=batch)
 
     else:
-        raise ValueError(f'Got unexpected value for permutation_type: {permutation_type}')
+        raise ValueError(
+            f"Got unexpected value for permutation_type: {permutation_type}"
+        )
 
     if isinstance(random_state, (int, np.int64)):
         rng = np.random.default_rng(seed=random_state)
@@ -258,12 +269,13 @@ def permutation_test(f, a, *args,
         rng = np.random.default_rng()
 
     else:
-        raise ValueError(f'Got unexpected value for random_state: {random_state}')
+        raise ValueError(f"Got unexpected value for random_state: {random_state}")
 
     seeds = rng.integers(0, MAX_INT, iterations)
     sample_statistic = delayed(calc_permutation)(args, shuffle=False)
-    jobs = chain([sample_statistic],
-                 (delayed(calc_permutation)(args, seed) for seed in seeds))
+    jobs = chain(
+        [sample_statistic], (delayed(calc_permutation)(args, seed) for seed in seeds)
+    )
 
     permutation_statistics = np.array(parallel(jobs))
     if permutation_statistics.ndim == 1:
@@ -278,8 +290,9 @@ def permutation_test(f, a, *args,
 
     elif len(args) > 2 or alternative == Alternative.two_sided:
         sample_delta = np.max(sample_statistic) - np.min(sample_statistic)
-        permutation_deltas = (np.max(permutation_statistics, axis=1)
-                              - np.min(permutation_statistics, axis=1))
+        permutation_deltas = np.max(permutation_statistics, axis=1) - np.min(
+            permutation_statistics, axis=1
+        )
 
     elif alternative == Alternative.greater:
         sample_delta = sample_statistic[0] - sample_statistic[1]
@@ -290,7 +303,7 @@ def permutation_test(f, a, *args,
         permutation_deltas = permutation_statistics[:, 1] - permutation_statistics[:, 0]
 
     else:
-        raise ValueError(f'Got unexpected value for alternative: {alternative}')
+        raise ValueError(f"Got unexpected value for alternative: {alternative}")
 
     pvalue = np.sum(sample_delta <= permutation_deltas) / iterations
 
@@ -304,7 +317,7 @@ def _permutation(permutate):
         if shuffle:
             args = permutate(args, rng)
 
-        if hasattr(calc_stat, '_accepts_random_state'):
+        if hasattr(calc_stat, "_accepts_random_state"):
             calc_stat = partial(calc_stat, random_state=rng)
 
         if batch:
@@ -339,7 +352,7 @@ def _ind_permutation(args, rng):
 # Evaluate a single permutation in a pairings-style permutation test.
 @_permutation
 def _pairings_permutation(args, rng):
-    for i in range(len(args)-1):
+    for i in range(len(args) - 1):
         args[i] = np.copy(args[i])
         rng.shuffle(args[i])
 
@@ -402,14 +415,14 @@ def iqr(x):
     if x.ndim > 1:
         x = x.flatten()
 
-    x = np.sort(x, kind='mergesort')
+    x = np.sort(x, kind="mergesort")
     midpoint = int(len(x) / 2)
     x_lower = x[:midpoint]
     if len(x) % 2 == 0:
         x_upper = x[midpoint:]
 
     else:
-        x_upper = x[midpoint+1:]
+        x_upper = x[midpoint + 1 :]
 
     q1 = np.median(x_lower)
     q3 = np.median(x_upper)
@@ -432,7 +445,7 @@ def tail_weight(x, side=DistSide.both):
 
     """
 
-    x = np.sort(x, kind='mergesort')
+    x = np.sort(x, kind="mergesort")
     midpoint = int(len(x) / 2)
     if side == DistSide.left:
         x_left = x[:midpoint]
@@ -443,7 +456,7 @@ def tail_weight(x, side=DistSide.both):
         x_right = x[midpoint:]
 
     else:
-        x_right = x[midpoint+1:]
+        x_right = x[midpoint + 1 :]
 
     rmc = medcouple(x_right)
     if side == DistSide.right:
@@ -454,31 +467,39 @@ def tail_weight(x, side=DistSide.both):
         lmc = medcouple(x_left) * -1
         return (lmc + rmc) / 2
 
-    raise ValueError(f'Unrecognized value for parameter `side`: {side}')
+    raise ValueError(f"Unrecognized value for parameter `side`: {side}")
 
 
 # Calculate mutual information on discrete datasets.
-def _mutual_info_discrete(a, b, average_method='arithmetic'):
+def _mutual_info_discrete(a, b, average_method="arithmetic"):
     return adjusted_mutual_info_score(a, b, average_method=average_method)
 
 
 # Calculate mutual information on continuous datasets.
 @accepts_random_state
-def _mutual_info_continuous(a, b, discrete_features=False, n_neighbors=3, random_state=None):
+def _mutual_info_continuous(
+    a, b, discrete_features=False, n_neighbors=3, random_state=None
+):
     a = a.reshape(-1, 1)
-    return mutual_info_regression(a, b,
-                                  discrete_features=discrete_features,
-                                  n_neighbors=n_neighbors,
-                                  random_state=random_state)
+    return mutual_info_regression(
+        a,
+        b,
+        discrete_features=discrete_features,
+        n_neighbors=n_neighbors,
+        random_state=random_state,
+    )
 
 
-def test_mutual_info(a, b,
-                     a_discrete=True,
-                     b_discrete=True,
-                     average_method='arithmetic',
-                     n_neighbors=3,
-                     random_state=None,
-                     **kwargs):
+def test_mutual_info(
+    a,
+    b,
+    a_discrete=True,
+    b_discrete=True,
+    average_method="arithmetic",
+    n_neighbors=3,
+    random_state=None,
+    **kwargs,
+):
     """
     Conduct a permutation test of mutual information between groups a and b.
 
@@ -510,33 +531,42 @@ def test_mutual_info(a, b,
         rs = random_state.integers(0, MAX_INT)
 
     if a_discrete and b_discrete:
-        f = partial(_mutual_info_discrete,
-                    average_method=average_method)
+        f = partial(_mutual_info_discrete, average_method=average_method)
 
     elif a_discrete:
-        f = partial(_mutual_info_continuous,
-                    discrete_features=True,
-                    n_neighbors=n_neighbors,
-                    random_state=rs)
+        f = partial(
+            _mutual_info_continuous,
+            discrete_features=True,
+            n_neighbors=n_neighbors,
+            random_state=rs,
+        )
 
     elif b_discrete:
         a, b = b, a
-        f = partial(_mutual_info_continuous,
-                    discrete_features=True,
-                    n_neighbors=n_neighbors,
-                    random_state=rs)
+        f = partial(
+            _mutual_info_continuous,
+            discrete_features=True,
+            n_neighbors=n_neighbors,
+            random_state=rs,
+        )
 
     else:
-        f = partial(_mutual_info_continuous,
-                    discrete_features=False,
-                    n_neighbors=n_neighbors,
-                    random_state=rs)
+        f = partial(
+            _mutual_info_continuous,
+            discrete_features=False,
+            n_neighbors=n_neighbors,
+            random_state=rs,
+        )
 
-    return permutation_test(f, a, b,
-                            batch=True,
-                            permutation_type=PermutationType.pairings,
-                            random_state=random_state,
-                            **kwargs)
+    return permutation_test(
+        f,
+        a,
+        b,
+        batch=True,
+        permutation_type=PermutationType.pairings,
+        random_state=random_state,
+        **kwargs,
+    )
 
 
 def standard_error(f, x, iterations=1000, random_state=None):
@@ -568,10 +598,10 @@ def standard_error(f, x, iterations=1000, random_state=None):
         rng = np.random.default_rng()
 
     else:
-        raise ValueError(f'Got unexpected value for random_state: {random_state}')
+        raise ValueError(f"Got unexpected value for random_state: {random_state}")
 
     bootstrap_statistics = [f(rng.choice(x, size=len(x))) for _ in range(iterations)]
-    return np.std(bootstrap_statistics) / math.sqrt(len(x))
+    return np.std(bootstrap_statistics, ddof=1)
 
 
 def gcv(x):
@@ -624,10 +654,10 @@ def hvar(x):
     """
 
     x_inv = 1 / x
-    return (np.var(x_inv)**2 / np.mean(x_inv)**4) / len(x)
+    return (np.var(x_inv) ** 2 / np.mean(x_inv) ** 4) / len(x)
 
 
-def xtrim(x, trim_amount=.1):
+def xtrim(x, trim_amount=0.1):
     """
     Trim an equal amount of data from the left and right sides of x.
 
@@ -650,7 +680,7 @@ def xtrim(x, trim_amount=.1):
     return trimmed_x
 
 
-def ftrim(f, x, trim_amount=.1):
+def ftrim(f, x, trim_amount=0.1):
     """
     Calculate the trimmed statistic f of dataset x.
 
@@ -670,14 +700,12 @@ def ftrim(f, x, trim_amount=.1):
     return f(trimmed_x)
 
 
-OptrimResult = namedtuple('OptrimResult', 'statistic standard_error trim_amount')
+OptrimResult = namedtuple("OptrimResult", "statistic standard_error trim_amount")
 
 
-def optrim(f, x,
-           max_trim_amount=.25,
-           sensitivity=1,
-           se_iterations=1000,
-           random_state=None):
+def optrim(
+    f, x, max_trim_amount=0.25, sensitivity=1, se_iterations=1000, random_state=None
+):
     """
     Calculate a trimmed statistic f of dataset x, using the standard error
     and the kneedle method to find the optimal trim amount.
@@ -703,7 +731,7 @@ def optrim(f, x,
 
     x = np.array(x)
     results = []
-    for trim_amount in range(int(max_trim_amount * 100)+1):
+    for trim_amount in range(int(max_trim_amount * 100) + 1):
         trim_frac = trim_amount / 100
         if trim_amount == 0:
             trimmed_x = x
@@ -711,18 +739,20 @@ def optrim(f, x,
         else:
             trimmed_x = xtrim(x, trim_amount=trim_frac)
 
-        results.append(OptrimResult(statistic=f(trimmed_x),
-                                    standard_error=standard_error(f, trimmed_x,
-                                                                  iterations=se_iterations,
-                                                                  random_state=random_state),
-                                    trim_amount=trim_frac))
+        results.append(
+            OptrimResult(
+                statistic=f(trimmed_x),
+                standard_error=standard_error(
+                    f, trimmed_x, iterations=se_iterations, random_state=random_state
+                ),
+                trim_amount=trim_frac,
+            )
+        )
 
     x = [r.trim_amount for r in results]
     y = [r.standard_error for r in results]
-    knee_locator = KneeLocator(x, y,
-                               curve='convex',
-                               direction='decreasing',
-                               online=True,
-                               S=sensitivity)
+    knee_locator = KneeLocator(
+        x, y, curve="convex", direction="decreasing", online=True, S=sensitivity
+    )
 
     return results[int(knee_locator.knee * 100)]
