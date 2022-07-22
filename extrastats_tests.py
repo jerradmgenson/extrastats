@@ -890,5 +890,19 @@ class TestStandardError(unittest.TestCase):
         self.assertAlmostEqual(se, 33.366064398)
 
 
+class TestAdjustedBoxplot(unittest.TestCase):
+    """
+    Test cases for es.adjusted_boxplot
+
+    """
+
+    def test_uniform_distribution_ndarray(self):
+        rng = np.random.default_rng(0)
+        x = rng.uniform(-100, 100, 1000)
+        low, high = es.adjusted_boxplot(x)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertEqual(len(y), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

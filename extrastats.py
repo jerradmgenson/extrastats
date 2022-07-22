@@ -39,7 +39,7 @@ TestResult = namedtuple("TestResult", "statistic pvalue")
 @singledispatch
 def adjusted_boxplot(
     x,
-    threshold=DEFAULT_THRESHOLD,
+    k=DEFAULT_THRESHOLD,
     frac=1,
     sparse=False,
     n_jobs=1,
@@ -51,8 +51,8 @@ def adjusted_boxplot(
 
     Args:
       x: A 1-D ndarray of numeric values.
-      threshold: Specifies the numeric "fence" for detecting outliers.
-                 Default is 1.5. Can also be a sequence of thresholds.
+      k: Factor for calculating outlier thresholds.
+         Default value is 1.5.
       frac: Fraction of the data to use for calculating the medcouple.
             When set to 1, the entire array is used.
       sparse: When set to True, scipy.sparse.coo_arrays are returned
@@ -65,7 +65,7 @@ def adjusted_boxplot(
 
     Returns:
       A boolean array the same shape as 'x' where True elements indicate
-      outliers. If 'threshold' is a sequence, a generator of arrays is
+      outliers. If 'k' is a sequence, a generator of arrays is
       returned instead.
 
     """
@@ -93,34 +93,29 @@ def adjusted_boxplot(
     iqr_ = q3 - q1
     mc = medcouple(x0)
 
-    def apply_threshold(threshold):
+    def apply_threshold(k):
         if mc >= 0:
-            lower_fence = q1 - threshold * np.exp(-3.5 * mc) * iqr_
-            upper_fence = q3 + threshold * np.exp(4 * mc) * iqr_
+            lower_fence = q1 - k * np.exp(-3.5 * mc) * iqr_
+            upper_fence = q3 + k * np.exp(4 * mc) * iqr_
 
         else:
-            lower_fence = q1 - threshold * np.exp(-4 * mc) * iqr_
-            upper_fence = q3 + threshold * np.exp(3.5 * mc) * iqr_
+            lower_fence = q1 - k * np.exp(-4 * mc) * iqr_
+            upper_fence = q3 + k * np.exp(3.5 * mc) * iqr_
 
-        outliers = (x < lower_fence) | (x > upper_fence)
-        assert outliers.shape == x.shape
-        if sparse:
-            return sp.sparse.coo_array(outliers)
-
-        return outliers
+        return lower_fence, upper_fence
 
     try:
-        outlier_groups = (apply_threshold(t) for t in threshold)
+        outlier_groups = (apply_threshold(t) for t in k)
         return outlier_groups
 
     except TypeError:
-        return apply_threshold(threshold)
+        return apply_threshold(k)
 
 
 @adjusted_boxplot.register
 def _(
     df: pd.DataFrame,
-    threshold=DEFAULT_THRESHOLD,
+    k=DEFAULT_THRESHOLD,
     frac=1,
     sparse=False,
     n_jobs=1,
@@ -134,8 +129,8 @@ def _(
 
     Args:
       df: A pandas dataframe.
-      threshold: Specifies the numeric "fence" for detecting outliers.
-                 Default is 1.5. Can also be a sequence of thresholds.
+      k: Factor for calculating outlier thresholds.
+         Default value is 1.5.
       frac: Fraction of the data to use for calculating the medcouple.
             When set to 1, the entire array is used.
       sparse: Currently not implemented for this variant of
@@ -149,7 +144,7 @@ def _(
 
     Returns:
       A Pandas dataframe with the same length and columns as 'df' where
-      True elements indicate outliers. If 'threshold' is a sequence, a
+      True elements indicate outliers. If 'k' is a sequence, a
       generator of dataframes is returned instead.
 
     """
@@ -158,16 +153,16 @@ def _(
         parallel = Parallel(n_jobs=n_jobs)
 
     aboxplt = partial(
-        adjusted_boxplot, threshold=threshold, frac=frac, random_state=random_state
+        adjusted_boxplot, k=k, frac=frac, random_state=random_state
     )
 
     jobs = (df[col].to_numpy(dtype=float) for col in df)
     outliers = parallel(delayed(aboxplt)(job) for job in jobs)
-    if isinstance(threshold, numbers.Number):
+    if isinstance(k, numbers.Number):
         return pd.DataFrame(dict(zip(df.columns, outliers)))
 
     dfs = dict()
-    for i, t in enumerate(threshold):
+    for i, t in enumerate(k):
         data = (o[i] for o in outliers)
         dfs[t] = pd.DataFrame(dict(zip(df.columns, data)))
 
