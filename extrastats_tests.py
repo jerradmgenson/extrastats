@@ -984,9 +984,13 @@ class TestGCV(unittest.TestCase):
         self.assertAlmostEqual(es.gcv(np.arange(2, 21, 2)),
                                0.78859946)
 
-    def test_real_numbers(self):
+    def test_floats1(self):
         self.assertAlmostEqual(es.gcv([0.1, 0.2, 0.4, 0.8]),
                                0.907276639)
+
+    def test_floats2(self):
+        x = [6.70497622, 3.71651977, 1.00910303, 0.87033352, 2.52396456, 4.03251592, 5.2215431 , 2.61256494, 3.31793736, 3.90597434]
+        self.assertAlmostEqual(es.gcv(x), 0.692575156)
 
 
 class TestHMean(unittest.TestCase):
