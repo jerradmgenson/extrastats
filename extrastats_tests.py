@@ -903,6 +903,90 @@ class TestAdjustedBoxplot(unittest.TestCase):
         y = x[np.logical_or(x < low, x > high)]
         self.assertEqual(len(y), 0)
 
+    def test_uniform_distribution_ndarray_with_one_outlier(self):
+        rng = np.random.default_rng(0)
+        x = np.concatenate([rng.uniform(-100, 100, 1000),
+                            np.full(1, 10000)])
+
+        low, high = es.adjusted_boxplot(x)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertEqual(y, [10000])
+
+    def test_uniform_distribution_ndarray_with_two_outliers(self):
+        rng = np.random.default_rng(0)
+        x = np.concatenate([rng.uniform(-100, 100, 1000),
+                            np.full(1, 10000),
+                            np.full(1, -10000)])
+
+        low, high = es.adjusted_boxplot(x)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertTrue((y == [10000, -10000]).all())
+
+    def test_normal_distribution_with_15_outliers(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(0, 1, 1000)
+        low, high = es.adjusted_boxplot(x)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertEqual(len(y), 15)
+
+    def test_normal_distribution_with_8_outliers(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(0, 100, 1000)
+        low, high = es.adjusted_boxplot(x)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertEqual(len(y), 8)
+
+    def test_normal_distribution_with_high_k(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(0, 1, 1000)
+        low, high = es.adjusted_boxplot(x, k=3)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertEqual(len(y), 0)
+
+    def test_normal_distribution_with_low_k(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(0, 1, 1000)
+        low, high = es.adjusted_boxplot(x, k=1)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertEqual(len(y), 44)
+
+    def test_right_tailed_distribution(self):
+        rng = np.random.default_rng(0)
+        x = np.concatenate([rng.normal(0, 1, 1000),
+                            rng.uniform(1, 5, 100)])
+
+        low, high = es.adjusted_boxplot(x)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertAlmostEqual(low, -2.10054411)
+        self.assertAlmostEqual(high, 4.37154061)
+        self.assertEqual(len(y), 32)
+
+    def test_left_tailed_distribution(self):
+        rng = np.random.default_rng(0)
+        x = np.concatenate([rng.normal(0, 1, 1000),
+                            rng.uniform(-5, -1, 100)])
+
+        low, high = es.adjusted_boxplot(x)
+        y = x[np.logical_or(x < low, x > high)]
+        self.assertAlmostEqual(low, -3.62692345)
+        self.assertAlmostEqual(high, 2.48356375)
+        self.assertEqual(len(y), 44)
+
+
+class TestGCV(unittest.TestCase):
+    """
+    Test cases for es.gcv
+
+    """
+
+    def test_even_integers(self):
+        self.assertAlmostEqual(es.gcv(np.arange(2, 21, 2)),
+                               0.78859946)
+
+    def test_real_numbers(self):
+        self.assertAlmostEqual(es.gcv([0.1, 0.2, 0.4, 0.8]),
+                               0.907276639)
+
 
 if __name__ == "__main__":
     unittest.main()
