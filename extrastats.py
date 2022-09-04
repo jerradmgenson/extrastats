@@ -41,7 +41,6 @@ def adjusted_boxplot(
     x,
     k=DEFAULT_THRESHOLD,
     frac=1,
-    sparse=False,
     n_jobs=1,
     parallel=None,
     random_state=None,
@@ -55,8 +54,6 @@ def adjusted_boxplot(
          Default value is 1.5.
       frac: Fraction of the data to use for calculating the medcouple.
             When set to 1, the entire array is used.
-      sparse: When set to True, scipy.sparse.coo_arrays are returned
-              instead of ndarrays.
       n_jobs: Not used in this variant of adjusted_boxplot.
       parallel: Not used in this variant of adjusted_boxplot.
       random_state: Either an integer >= 0 or an instance of
@@ -64,9 +61,8 @@ def adjusted_boxplot(
                     behavior when frac < 1.
 
     Returns:
-      A boolean array the same shape as 'x' where True elements indicate
-      outliers. If 'k' is a sequence, a generator of arrays is
-      returned instead.
+      A tuple of (low, high) outlier thresholds. If 'k' is a sequence,
+      a generator of tuples is returned instead.
 
     """
 
@@ -117,7 +113,6 @@ def _(
     df: pd.DataFrame,
     k=DEFAULT_THRESHOLD,
     frac=1,
-    sparse=False,
     n_jobs=1,
     parallel=None,
     random_state=None,
@@ -143,9 +138,8 @@ def _(
                     behavior when frac < 1.
 
     Returns:
-      A Pandas dataframe with the same length and columns as 'df' where
-      True elements indicate outliers. If 'k' is a sequence, a
-      generator of dataframes is returned instead.
+      A tuple of (low, high) outlier thresholds. If 'k' is a sequence,
+      a generator of tuples is returned instead.
 
     """
 
@@ -631,7 +625,7 @@ def hmean(x, w=None):
     x = np.array(x)
     if w is not None:
         w = np.array(w)
-        return 1 / (np.sum(w * (1 / x)) / np.sum(w))
+        return np.sum(w) / np.sum(w / x)
 
     return 1 / (np.sum(1 / x) / len(x))
 

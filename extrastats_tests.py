@@ -13,6 +13,7 @@ import unittest
 
 import numpy as np
 import scipy as sp
+from scipy import stats
 
 import extrastats as es
 
@@ -987,6 +988,36 @@ class TestGCV(unittest.TestCase):
         self.assertAlmostEqual(es.gcv([0.1, 0.2, 0.4, 0.8]),
                                0.907276639)
 
+
+class TestHMean(unittest.TestCase):
+    """
+    Test cases for es.hmean
+
+    """
+
+    def test_unweighted_integers(self):
+        x = np.arange(1, 1001, 3)
+        self.assertAlmostEqual(stats.hmean(x), es.hmean(x))
+
+    def test_unweighted_floats(self):
+        x = np.geomspace(0.1, 10)
+        self.assertAlmostEqual(stats.hmean(x), es.hmean(x))
+
+    def test_weighted_integers1(self):
+        x = [2, 5, 9]
+        w = [0.7, 0.1, 0.2]
+        self.assertAlmostEqual(es.hmean(x, w=w), 2.5495751)
+
+    def test_weighted_integers2(self):
+        x = [635, 967, 30, 201, 105]
+        w = [0.48027951, 0.4317628 , 0.80718422, 0.81339185, 0.47082124]
+        self.assertAlmostEqual(es.hmean(x, w=w), 81.9722296)
+
+    def test_weighted_floats(self):
+        x = [110.76697949, 383.2807274 , 193.03575001]
+        w = [0.84695024, 0.42064563, 0.54689728]
+        self.assertAlmostEqual(es.hmean(x, w=w),
+                               156.7344698056)
 
 if __name__ == "__main__":
     unittest.main()
