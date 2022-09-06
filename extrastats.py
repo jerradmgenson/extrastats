@@ -18,7 +18,6 @@ from functools import partial, singledispatch, wraps
 from itertools import chain
 
 import numpy as np
-import scipy as sp
 import pandas as pd
 from joblib import Parallel, delayed
 from robustats import medcouple
@@ -341,11 +340,8 @@ def _ind_permutation(args, rng):
 # Evaluate a single permutation in a pairings-style permutation test.
 @_permutation
 def _pairings_permutation(args, rng):
-    for i in range(len(args) - 1):
-        args[i] = np.copy(args[i])
-        rng.shuffle(args[i])
-
-    return args
+    shuffled_args = [rng.choice(x, size=len(x), replace=False) for x in args]
+    return shuffled_args
 
 
 # Evaluate a single permutation in a samples-style permutation test.

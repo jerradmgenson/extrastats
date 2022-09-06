@@ -306,7 +306,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.396)
+        self.assertAlmostEqual(test_result.pvalue, 0.415)
         self.assertAlmostEqual(test_result.statistic, 0.008244083)
 
     def test_random_numbers_are_linearly_uncorrelated2(self):
@@ -322,7 +322,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.977)
+        self.assertAlmostEqual(test_result.pvalue, 0.985)
         self.assertAlmostEqual(test_result.statistic, 0.00027762)
 
     def test_random_numbers_are_linearly_uncorrelated3(self):
@@ -338,7 +338,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.324)
+        self.assertAlmostEqual(test_result.pvalue, 0.291)
         self.assertAlmostEqual(test_result.statistic, -0.01024487)
 
     def test_random_numbers_are_monotonically_uncorrelated1(self):
@@ -354,7 +354,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.395)
+        self.assertAlmostEqual(test_result.pvalue, 0.406)
         self.assertAlmostEqual(test_result.statistic, 0.00557355)
 
     def test_random_numbers_are_monotonically_uncorrelated2(self):
@@ -370,7 +370,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.978)
+        self.assertAlmostEqual(test_result.pvalue, 0.982)
         self.assertAlmostEqual(test_result.statistic, 0.00020594)
 
     def test_random_numbers_are_monotonically_uncorrelated3(self):
@@ -386,7 +386,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.327)
+        self.assertAlmostEqual(test_result.pvalue, 0.289)
         self.assertAlmostEqual(test_result.statistic, -0.00681552)
 
     def test_linear_function_exhibits_linear_correlation(self):
@@ -466,7 +466,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.996)
+        self.assertAlmostEqual(test_result.pvalue, 0.998)
         self.assertAlmostEqual(test_result.statistic, 2.67353702e-05)
 
     def test_sinusoidal_function_is_monotonically_uncorrelated(self):
@@ -482,7 +482,7 @@ class TestPermutationTest(unittest.TestCase):
             permutation_type=es.PermutationType.pairings,
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 1.0)
+        self.assertAlmostEqual(test_result.pvalue, 0.997)
         self.assertAlmostEqual(test_result.statistic, 2.2362236e-05)
 
     def test_paired_means_are_equal1(self):
@@ -826,7 +826,7 @@ class TestMutualInfo(unittest.TestCase):
         rng = np.random.default_rng(0)
         rng.shuffle(b)
         test_result = es.test_mutual_info(a, b, random_state=rng)
-        self.assertAlmostEqual(test_result.pvalue, 0.719)
+        self.assertAlmostEqual(test_result.pvalue, 0.732)
         self.assertAlmostEqual(test_result.statistic, 0.00050649)
 
     def test_correctly_identifies_continuous_independent_variables(self):
@@ -838,7 +838,7 @@ class TestMutualInfo(unittest.TestCase):
             a, b, a_discrete=False, b_discrete=False, random_state=rng
         )
 
-        self.assertAlmostEqual(test_result.pvalue, 0.439)
+        self.assertAlmostEqual(test_result.pvalue, 0.407)
         self.assertAlmostEqual(test_result.statistic, 0.003932137)
 
     def test_correctly_identifies_mixed_independent_variables1(self):
