@@ -14,6 +14,7 @@ import math
 import numbers
 from enum import Enum
 from collections import namedtuple
+from typing import Sequence
 from functools import partial, singledispatch, wraps
 from itertools import chain
 
@@ -145,9 +146,7 @@ def _(
     if parallel is None:
         parallel = Parallel(n_jobs=n_jobs)
 
-    aboxplt = partial(
-        adjusted_boxplot, k=k, frac=frac, random_state=random_state
-    )
+    aboxplt = partial(adjusted_boxplot, k=k, frac=frac, random_state=random_state)
 
     jobs = (df[col].to_numpy(dtype=float) for col in df)
     outliers = parallel(delayed(aboxplt)(job) for job in jobs)
@@ -741,3 +740,22 @@ def optrim(
     )
 
     return results[int(knee_locator.knee * 100)]
+
+
+def sum_prob(p: Sequence[float]) -> float:
+    """
+    Apply the sum rule of probability to an array of independent
+    probabilities.
+
+    """
+
+    if len(p) == 0:
+        return 0.0
+
+    accum = p[0]
+    p = p[1:]
+    while len(p):
+        accum = accum + p[0] - accum * p[0]
+        p = p[1:]
+
+    return accum

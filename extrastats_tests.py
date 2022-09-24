@@ -906,8 +906,7 @@ class TestAdjustedBoxplot(unittest.TestCase):
 
     def test_uniform_distribution_ndarray_with_one_outlier(self):
         rng = np.random.default_rng(0)
-        x = np.concatenate([rng.uniform(-100, 100, 1000),
-                            np.full(1, 10000)])
+        x = np.concatenate([rng.uniform(-100, 100, 1000), np.full(1, 10000)])
 
         low, high = es.adjusted_boxplot(x)
         y = x[np.logical_or(x < low, x > high)]
@@ -915,9 +914,9 @@ class TestAdjustedBoxplot(unittest.TestCase):
 
     def test_uniform_distribution_ndarray_with_two_outliers(self):
         rng = np.random.default_rng(0)
-        x = np.concatenate([rng.uniform(-100, 100, 1000),
-                            np.full(1, 10000),
-                            np.full(1, -10000)])
+        x = np.concatenate(
+            [rng.uniform(-100, 100, 1000), np.full(1, 10000), np.full(1, -10000)]
+        )
 
         low, high = es.adjusted_boxplot(x)
         y = x[np.logical_or(x < low, x > high)]
@@ -953,8 +952,7 @@ class TestAdjustedBoxplot(unittest.TestCase):
 
     def test_right_tailed_distribution(self):
         rng = np.random.default_rng(0)
-        x = np.concatenate([rng.normal(0, 1, 1000),
-                            rng.uniform(1, 5, 100)])
+        x = np.concatenate([rng.normal(0, 1, 1000), rng.uniform(1, 5, 100)])
 
         low, high = es.adjusted_boxplot(x)
         y = x[np.logical_or(x < low, x > high)]
@@ -964,8 +962,7 @@ class TestAdjustedBoxplot(unittest.TestCase):
 
     def test_left_tailed_distribution(self):
         rng = np.random.default_rng(0)
-        x = np.concatenate([rng.normal(0, 1, 1000),
-                            rng.uniform(-5, -1, 100)])
+        x = np.concatenate([rng.normal(0, 1, 1000), rng.uniform(-5, -1, 100)])
 
         low, high = es.adjusted_boxplot(x)
         y = x[np.logical_or(x < low, x > high)]
@@ -981,15 +978,24 @@ class TestGCV(unittest.TestCase):
     """
 
     def test_even_integers(self):
-        self.assertAlmostEqual(es.gcv(np.arange(2, 21, 2)),
-                               0.78859946)
+        self.assertAlmostEqual(es.gcv(np.arange(2, 21, 2)), 0.78859946)
 
     def test_floats1(self):
-        self.assertAlmostEqual(es.gcv([0.1, 0.2, 0.4, 0.8]),
-                               0.907276639)
+        self.assertAlmostEqual(es.gcv([0.1, 0.2, 0.4, 0.8]), 0.907276639)
 
     def test_floats2(self):
-        x = [6.70497622, 3.71651977, 1.00910303, 0.87033352, 2.52396456, 4.03251592, 5.2215431 , 2.61256494, 3.31793736, 3.90597434]
+        x = [
+            6.70497622,
+            3.71651977,
+            1.00910303,
+            0.87033352,
+            2.52396456,
+            4.03251592,
+            5.2215431,
+            2.61256494,
+            3.31793736,
+            3.90597434,
+        ]
         self.assertAlmostEqual(es.gcv(x), 0.692575156)
 
 
@@ -1014,14 +1020,148 @@ class TestHMean(unittest.TestCase):
 
     def test_weighted_integers2(self):
         x = [635, 967, 30, 201, 105]
-        w = [0.48027951, 0.4317628 , 0.80718422, 0.81339185, 0.47082124]
+        w = [0.48027951, 0.4317628, 0.80718422, 0.81339185, 0.47082124]
         self.assertAlmostEqual(es.hmean(x, w=w), 81.9722296)
 
     def test_weighted_floats(self):
-        x = [110.76697949, 383.2807274 , 193.03575001]
+        x = [110.76697949, 383.2807274, 193.03575001]
         w = [0.84695024, 0.42064563, 0.54689728]
-        self.assertAlmostEqual(es.hmean(x, w=w),
-                               156.7344698056)
+        self.assertAlmostEqual(es.hmean(x, w=w), 156.7344698056)
+
+
+class TestSumProb(unittest.TestCase):
+    """
+    Test cases for es.sum_prob
+
+    """
+
+    def test_commutativity(self):
+        """
+        Test that es.sum_prob satisfies the commutative property
+
+        """
+
+        rng = np.random.default_rng(0)
+        for _ in range(10000):
+            p = rng.uniform(size=2)
+            sum1 = es.sum_prob(p)
+            p = np.flip(p)
+            sum2 = es.sum_prob(p)
+            self.assertAlmostEqual(sum1, sum2)
+
+    def test_associativity(self):
+        """
+        Test that es.sum_prob satisfies the associative property
+
+        """
+
+        rng = np.random.default_rng(1)
+        for _ in range(10000):
+            n = rng.integers(3, 101)
+            p = rng.uniform(size=n)
+            sum1 = es.sum_prob(p)
+            rng.shuffle(p)
+            sum2 = es.sum_prob(p)
+            self.assertAlmostEqual(sum1, sum2)
+
+    def test_probability_boundaries(self):
+        """
+        Test that es.sum_prob results satisfy 0<=p<=1
+
+        """
+
+        rng = np.random.default_rng(2)
+        for _ in range(10000):
+            n = rng.integers(1, 101)
+            p = rng.uniform(size=n)
+            result = es.sum_prob(p)
+            self.assertGreaterEqual(result, 0)
+            self.assertLessEqual(result, 1)
+
+    def test_array_with_cardinality_0(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 0
+
+        """
+
+        result = es.sum_prob(np.array([]))
+        self.assertEqual(result, 0.0)
+
+    def test_array_with_cardinality_1(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 1
+
+        """
+
+        p = np.array([0.5])
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, p[0])
+
+    def test_array_with_cardinality_2(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 2
+
+        """
+
+        p = np.array([0.5, 0.5])
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.75)
+
+    def test_array_with_cardinality_3(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 3
+
+        """
+
+        p = np.array([0.5, 0.5, 0.5])
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.875)
+
+    def test_list(self):
+        """
+        Test es.sum_prob with a list
+
+        """
+
+        p = [0.5, 0.5, 0.5]
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.875)
+
+    def test_tuple(self):
+        """
+        Test es.sum_prob with a tuple
+
+        """
+
+        p = (0.5, 0.5, 0.5)
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.875)
+
+    def test_against_simulation(self):
+        """
+        Test the calculations of es.sum_prob vs simulated calculations
+
+        """
+
+        rng = np.random.default_rng(3)
+
+        def sim(p):
+            trials = 10000
+            success = 0
+            for _ in range(trials):
+                rand_probs = rng.uniform(size=len(p))
+                if (p > rand_probs).any():
+                    success += 1
+
+            return success / trials
+
+        for _ in range(100):
+            n = rng.integers(2, 101)
+            p = rng.uniform(size=n)
+            result1 = round(es.sum_prob(p), 2)
+            result2 = round(sim(p), 2)
+            self.assertTrue(abs(result1 - result2) < 0.021)
+
 
 if __name__ == "__main__":
     unittest.main()
