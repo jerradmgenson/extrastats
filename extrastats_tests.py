@@ -1023,5 +1023,140 @@ class TestHMean(unittest.TestCase):
         self.assertAlmostEqual(es.hmean(x, w=w),
                                156.7344698056)
 
+
+class TestSumProb(unittest.TestCase):
+    """
+    Test cases for es.sum_prob
+
+    """
+
+    def test_commutativity(self):
+        """
+        Test that es.sum_prob satisfies the commutative property
+
+        """
+
+        rng = np.random.default_rng(0)
+        for _ in range(10000):
+            p = rng.uniform(size=2)
+            sum1 = es.sum_prob(p)
+            p = np.flip(p)
+            sum2 = es.sum_prob(p)
+            self.assertAlmostEqual(sum1, sum2)
+
+    def test_associativity(self):
+        """
+        Test that es.sum_prob satisfies the associative property
+
+        """
+
+        rng = np.random.default_rng(1)
+        for _ in range(10000):
+            n = rng.integers(3, 101)
+            p = rng.uniform(size=n)
+            sum1 = es.sum_prob(p)
+            rng.shuffle(p)
+            sum2 = es.sum_prob(p)
+            self.assertAlmostEqual(sum1, sum2)
+
+    def test_probability_boundaries(self):
+        """
+        Test that es.sum_prob results satisfy 0<=p<=1
+
+        """
+
+        rng = np.random.default_rng(2)
+        for _ in range(10000):
+            n = rng.integers(1, 101)
+            p = rng.uniform(size=n)
+            result = es.sum_prob(p)
+            self.assertGreaterEqual(result, 0)
+            self.assertLessEqual(result, 1)
+
+    def test_array_with_cardinality_0(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 0
+
+        """
+
+        result = es.sum_prob(np.array([]))
+        self.assertEqual(result, 0.0)
+
+    def test_array_with_cardinality_1(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 1
+
+        """
+
+        p = np.array([0.5])
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, p[0])
+
+    def test_array_with_cardinality_2(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 2
+
+        """
+
+        p = np.array([0.5, 0.5])
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.75)
+
+    def test_array_with_cardinality_3(self):
+        """
+        Test that es.sum_prob is correct for an array of cardinality 3
+
+        """
+
+        p = np.array([0.5, 0.5, 0.5])
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.875)
+
+    def test_list(self):
+        """
+        Test es.sum_prob with a list
+
+        """
+
+        p = [0.5, 0.5, 0.5]
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.875)
+
+    def test_tuple(self):
+        """
+        Test es.sum_prob with a tuple
+
+        """
+
+        p = (0.5, 0.5, 0.5)
+        result = es.sum_prob(p)
+        self.assertAlmostEqual(result, 0.875)
+
+    def test_against_simulation(self):
+        """
+        Test the calculations of es.sum_prob vs simulated calculations
+
+        """
+
+        rng = np.random.default_rng(3)
+
+        def sim(p):
+            trials = 10000
+            success = 0
+            for _ in range(trials):
+                rand_probs = rng.uniform(size=len(p))
+                if (p > rand_probs).any():
+                    success += 1
+
+            return success / trials
+
+        for _ in range(100):
+            n = rng.integers(2, 101)
+            p = rng.uniform(size=n)
+            result1 = round(es.sum_prob(p), 2)
+            result2 = round(sim(p), 2)
+            self.assertTrue(abs(result1 - result2) < 0.021)
+
+
 if __name__ == "__main__":
     unittest.main()
