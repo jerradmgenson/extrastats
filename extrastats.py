@@ -146,9 +146,7 @@ def _(
     if parallel is None:
         parallel = Parallel(n_jobs=n_jobs)
 
-    aboxplt = partial(
-        adjusted_boxplot, k=k, frac=frac, random_state=random_state
-    )
+    aboxplt = partial(adjusted_boxplot, k=k, frac=frac, random_state=random_state)
 
     jobs = (df[col].to_numpy(dtype=float) for col in df)
     outliers = parallel(delayed(aboxplt)(job) for job in jobs)
