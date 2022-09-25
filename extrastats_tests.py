@@ -13,7 +13,6 @@ import unittest
 
 import numpy as np
 import scipy as sp
-from scipy import stats
 from sklearn.metrics import mean_squared_error
 
 import extrastats as es
@@ -1148,6 +1147,51 @@ class TestSumProb(unittest.TestCase):
             result1 = round(es.sum_prob(p), 2)
             result2 = round(sim(p), 2)
             self.assertTrue(abs(result1 - result2) < 0.021)
+
+
+class TestHVar(unittest.TestCase):
+    """
+    Test cases for es.hvar
+
+    """
+
+    def test_valid_input1(self):
+        rng = np.random.default_rng(0)
+        x = rng.uniform(1, 100, 5)
+        result = es.hvar(x)
+        self.assertAlmostEqual(result, 15.173267629321453)
+
+    def test_valid_input2(self):
+        rng = np.random.default_rng(1)
+        x = rng.uniform(1, 100, 10)
+        result = es.hvar(x)
+        self.assertAlmostEqual(result, 103.05631937969912)
+
+    def test_valid_input3(self):
+        rng = np.random.default_rng(2)
+        x = rng.uniform(100, 1000, 5)
+        result = es.hvar(x)
+        self.assertAlmostEqual(result, 7485.401157374311)
+
+    def test_array_with_cardinality_0(self):
+        x = np.array([])
+        result = es.hvar(x)
+        self.assertTrue(np.isnan(result))
+
+    def test_array_with_cardinality_1(self):
+        x = np.array([10])
+        result = es.hvar(x)
+        self.assertEqual(result, 0)
+
+    def test_array_with_cardinality_2(self):
+        x = np.array([10, 20])
+        result = es.hvar(x)
+        self.assertAlmostEqual(result, 9.876543209876539)
+
+    def test_list(self):
+        x = [10, 20]
+        result = es.hvar(x)
+        self.assertAlmostEqual(result, 9.876543209876539)
 
 
 if __name__ == "__main__":

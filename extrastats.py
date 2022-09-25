@@ -19,6 +19,7 @@ from functools import partial, singledispatch, wraps
 from itertools import chain
 
 import numpy as np
+from numpy.typing import ArrayLike
 import pandas as pd
 from joblib import Parallel, delayed
 from robustats import medcouple
@@ -610,7 +611,7 @@ def gcv(x):
     return math.sqrt(math.expm1(np.var(np.log(x))))
 
 
-def hvar(x):
+def hvar(x: ArrayLike) -> float:
     """
     Calculate the harmonic variability for a sample x.
 
@@ -622,8 +623,9 @@ def hvar(x):
 
     """
 
+    x = np.array(x)
     x_inv = 1 / x
-    return (np.var(x_inv) ** 2 / np.mean(x_inv) ** 4) / len(x)
+    return (np.var(x_inv) / np.mean(x_inv) ** 4) / len(x)
 
 
 def xtrim(x, trim_amount=0.1):
