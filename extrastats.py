@@ -15,7 +15,7 @@ import numbers
 from enum import Enum
 from collections import namedtuple
 from typing import Sequence
-from functools import partial, singledispatch, wraps
+from functools import partial, singledispatch, wraps, reduce
 from itertools import chain
 
 import numpy as np
@@ -739,10 +739,4 @@ def sum_prob(p: Sequence[float]) -> float:
     if len(p) == 0:
         return 0.0
 
-    accum = p[0]
-    p = p[1:]
-    while len(p):
-        accum = accum + p[0] - accum * p[0]
-        p = p[1:]
-
-    return accum
+    return reduce(lambda x, y: x + y - x * y, p)
