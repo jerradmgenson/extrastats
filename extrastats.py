@@ -596,7 +596,7 @@ def standard_error(f, x, iterations=1000, random_state=None):
     return np.std(bootstrap_statistics, ddof=1)
 
 
-def gcv(x):
+def gcv(x: ArrayLike) -> float:
     """
     Calculate the geometric coefficient of variation for a sample x.
 

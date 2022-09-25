@@ -1014,6 +1014,16 @@ class TestGCV(unittest.TestCase):
         ]
         self.assertAlmostEqual(es.gcv(x), 0.692575156)
 
+    def test_array_with_cardinality_0(self):
+        x = np.array([])
+        result = es.gcv(x)
+        self.assertTrue(np.isnan(result))
+
+    def test_list(self):
+        x = [0.1, 0.2, 0.4, 0.8]
+        result = es.gcv(x)
+        self.assertAlmostEqual(result, 0.907276639)
+
 
 class TestSumProb(unittest.TestCase):
     """
