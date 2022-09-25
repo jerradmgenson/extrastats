@@ -271,9 +271,8 @@ def permutation_test(
     sample_statistic = permutation_statistics[0]
     permutation_statistics = permutation_statistics[1:]
     if len(sample_statistic) == 1:
-        sample_statistic = sample_statistic[0]
-        sample_delta = abs(sample_statistic)
-        permutation_deltas = np.abs(permutation_statistics)
+        sample_delta = sample_statistic[0]
+        permutation_deltas = permutation_statistics
 
     elif len(args) > 2 or alternative == Alternative.two_sided:
         sample_delta = np.max(sample_statistic) - np.min(sample_statistic)
