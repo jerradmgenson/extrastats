@@ -843,7 +843,7 @@ class TestMutualInfo(unittest.TestCase):
         rng = np.random.default_rng(0)
         rng.shuffle(b)
         test_result = es.test_mutual_info(a, b, random_state=rng)
-        self.assertAlmostEqual(test_result.pvalue, 0.732)
+        self.assertAlmostEqual(test_result.pvalue, 0.308)
         self.assertAlmostEqual(test_result.statistic, 0.00050649)
 
     def test_correctly_identifies_continuous_independent_variables(self):
