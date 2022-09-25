@@ -623,7 +623,7 @@ def hvar(x):
     """
 
     x_inv = 1 / x
-    return (np.var(x_inv) ** 2 / np.mean(x_inv) ** 4) / len(x)
+    return (np.var(x_inv) / np.mean(x_inv) ** 4) / len(x)
 
 
 def xtrim(x, trim_amount=0.1):
