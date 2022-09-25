@@ -167,6 +167,7 @@ def permutation_test(
     *args,
     alternative=Alternative.two_sided,
     permutation_type=PermutationType.bootstrap,
+    less_is_more=False,
     iterations=1000,
     batch=False,
     n_jobs=1,
@@ -201,6 +202,8 @@ def permutation_test(
                           belongs to and the ordering is randomized.
                         - bootstrap: combines observations from all samples
                           and then resamples with replacement.
+      less_is_more: True if smaller results should be considered more extreme
+                    than larger results.
       iterations: Number of permutations to evaluate.
       batch: If set to True, 'f' accepts a list of ndarrays instead of a
              single array, and may return a scalar or a vector value.
@@ -271,7 +274,8 @@ def permutation_test(
     sample_statistic = permutation_statistics[0]
     permutation_statistics = permutation_statistics[1:]
     if len(sample_statistic) == 1:
-        sample_delta = sample_statistic[0]
+        sample_statistic = sample_statistic[0]
+        sample_delta = sample_statistic
         permutation_deltas = permutation_statistics
 
     elif len(args) > 2 or alternative == Alternative.two_sided:
@@ -291,7 +295,11 @@ def permutation_test(
     else:
         raise ValueError(f"Got unexpected value for alternative: {alternative}")
 
-    pvalue = np.sum(sample_delta <= permutation_deltas) / iterations
+    if less_is_more:
+        pvalue = np.sum(sample_delta >= permutation_deltas) / iterations
+
+    else:
+        pvalue = np.sum(sample_delta <= permutation_deltas) / iterations
 
     return TestResult(statistic=sample_statistic, pvalue=pvalue)
 
