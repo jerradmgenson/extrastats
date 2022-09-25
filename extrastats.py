@@ -610,28 +610,6 @@ def gcv(x):
     return math.sqrt(math.expm1(np.var(np.log(x))))
 
 
-def hmean(x, w=None):
-    """
-    Calculate the weighted harmonic mean for a sample x.
-
-    Args:
-      x: An ndarray of data to calculate the harmonic mean of.
-      w: An ndarray of weights. If not given, the unweighted harmonic
-         mean will be calculated instead.
-
-    Returns:
-      The harmonic mean of x given weights w.
-
-    """
-
-    x = np.array(x)
-    if w is not None:
-        w = np.array(w)
-        return np.sum(w) / np.sum(w / x)
-
-    return 1 / (np.sum(1 / x) / len(x))
-
-
 def hvar(x):
     """
     Calculate the harmonic variability for a sample x.
