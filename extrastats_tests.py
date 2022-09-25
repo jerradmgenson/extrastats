@@ -1150,5 +1150,18 @@ class TestSumProb(unittest.TestCase):
             self.assertTrue(abs(result1 - result2) < 0.021)
 
 
+class TestHVar(unittest.TestCase):
+    """
+    Test cases for es.hvar
+
+    """
+
+    def test_valid_input1(self):
+        rng = np.random.default_rng(0)
+        x = rng.uniform(1, 100, 5)
+        result = es.hvar(x)
+        self.assertAlmostEqual(result, 15.173267629321453)
+
+
 if __name__ == "__main__":
     unittest.main()
