@@ -433,7 +433,7 @@ class TestPermutationTest(unittest.TestCase):
             random_state=rng,
             batch=True,
             permutation_type=es.PermutationType.pairings,
-            less_is_more=True
+            less_is_more=True,
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.0)
@@ -637,12 +637,14 @@ class TestPermutationTest(unittest.TestCase):
     def test_mean_squared_error(self):
         rng = np.random.default_rng(101)
         a = np.arange(100) * 5 + 7
-        test_result = es.permutation_test(lambda x, y: -1 * mean_squared_error(x, y),
-                                          a,
-                                          a,
-                                          permutation_type=es.PermutationType.pairings,
-                                          batch=True,
-                                          random_state=rng)
+        test_result = es.permutation_test(
+            lambda x, y: -1 * mean_squared_error(x, y),
+            a,
+            a,
+            permutation_type=es.PermutationType.pairings,
+            batch=True,
+            random_state=rng,
+        )
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic, 0)
