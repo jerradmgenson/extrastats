@@ -14,6 +14,7 @@ import unittest
 import numpy as np
 import scipy as sp
 from scipy import stats
+from sklearn.metrics import mean_squared_error
 
 import extrastats as es
 
@@ -631,6 +632,19 @@ class TestPermutationTest(unittest.TestCase):
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic[0], 84750.7259122)
         self.assertAlmostEqual(test_result.statistic[1], 84700.17749948)
+
+    def test_mean_squared_error(self):
+        rng = np.random.default_rng(101)
+        a = np.arange(100) * 5 + 7
+        test_result = es.permutation_test(lambda x, y: -1 * mean_squared_error(x, y),
+                                          a,
+                                          a,
+                                          permutation_type=es.PermutationType.pairings,
+                                          batch=True,
+                                          random_state=rng)
+
+        self.assertAlmostEqual(test_result.pvalue, 0)
+        self.assertAlmostEqual(test_result.statistic, 0)
 
 
 class TestIQR(unittest.TestCase):
