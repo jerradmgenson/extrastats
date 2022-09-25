@@ -622,6 +622,7 @@ def hvar(x):
 
     """
 
+    x = np.array(x)
     x_inv = 1 / x
     return (np.var(x_inv) / np.mean(x_inv) ** 4) / len(x)
 
