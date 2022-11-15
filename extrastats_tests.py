@@ -10,6 +10,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """
 
 import unittest
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import scipy as sp
@@ -985,6 +986,24 @@ class TestAdjustedBoxplot(unittest.TestCase):
         self.assertAlmostEqual(low, -3.62692345)
         self.assertAlmostEqual(high, 2.48356375)
         self.assertEqual(len(y), 44)
+
+    @patch("extrastats.medcouple", MagicMock(return_value=np.nan))
+    def test_medcouple_nan_raises_exception(self):
+        rng = np.random.default_rng(510030955)
+        x = rng.uniform(-1000000, 1000000, 1000)
+        with self.assertRaises(es.MedcoupleError):
+            es.adjusted_boxplot(x)
+
+    @patch("extrastats.medcouple", MagicMock(return_value=np.nan))
+    def test_medcouple_nan_logs_warning(self):
+        rng = np.random.default_rng(510030955)
+        x = rng.uniform(-1000000, 1000000, 1000)
+        with self.assertLogs(level="WARNING"):
+            low, high = es.adjusted_boxplot(x, raise_medcouple_error=False)
+
+        self.assertTrue(np.isfinite(low))
+        self.assertTrue(np.isfinite(high))
+        self.assertLess(low, high)
 
 
 class TestGCV(unittest.TestCase):

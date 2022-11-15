@@ -10,22 +10,23 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
 
+import logging
 import math
 import numbers
-from enum import Enum
 from collections import namedtuple
-from typing import Sequence
-from functools import partial, singledispatch, wraps, reduce
+from enum import Enum
+from functools import partial, reduce, singledispatch, wraps
 from itertools import chain
+from typing import Sequence
 
 import numpy as np
-from numpy.typing import ArrayLike
 import pandas as pd
 from joblib import Parallel, delayed
-from robustats import medcouple
-from sklearn.metrics import adjusted_mutual_info_score
-from sklearn.feature_selection import mutual_info_regression
 from kneed import KneeLocator
+from numpy.typing import ArrayLike
+from robustats import medcouple
+from sklearn.feature_selection import mutual_info_regression
+from sklearn.metrics import adjusted_mutual_info_score
 
 DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
@@ -37,6 +38,13 @@ PermutationType = Enum("PermutationType", "independent samples pairings bootstra
 TestResult = namedtuple("TestResult", "statistic pvalue")
 
 
+class MedcoupleError(Exception):
+    """
+    Raised when there is an error in the medcouple calculation.
+
+    """
+
+
 @singledispatch
 def adjusted_boxplot(
     x,
@@ -45,6 +53,7 @@ def adjusted_boxplot(
     n_jobs=1,
     parallel=None,
     random_state=None,
+    raise_medcouple_error=True,
 ):
     """
     Apply the adjusted boxplot method on an array of numeric values.
@@ -60,6 +69,10 @@ def adjusted_boxplot(
       random_state: Either an integer >= 0 or an instance of
                     numpy.random.Generator. Used to attain reproducible
                     behavior when frac < 1.
+      raise_medcouple_error: Raise a MedcoupleError exception when the medcouple
+                             calculation results in a NaN value. Otherwise, issue
+                             a warning and use the ordinary boxplot method without
+                             the medcouple adjustment.
 
     Returns:
       A tuple of (low, high) outlier thresholds. If 'k' is a sequence,
@@ -89,9 +102,21 @@ def adjusted_boxplot(
     q1, q3 = np.quantile(x0, [0.25, 0.75])
     iqr_ = q3 - q1
     mc = medcouple(x0)
+    if np.isnan(mc):
+        error = "medcouple calculation resulted in nan"
+        if raise_medcouple_error:
+            raise MedcoupleError(error)
+
+        logger = logging.getLogger(__name__)
+        logger.warning(error)
 
     def apply_threshold(k):
-        if mc >= 0:
+        if np.isnan(mc):
+            threshold = k * iqr_
+            lower_fence = q1 - threshold
+            upper_fence = q3 + threshold
+
+        elif mc >= 0:
             lower_fence = q1 - k * np.exp(-3.5 * mc) * iqr_
             upper_fence = q3 + k * np.exp(4 * mc) * iqr_
 
