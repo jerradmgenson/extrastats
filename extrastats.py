@@ -24,11 +24,10 @@ import pandas as pd
 from joblib import Parallel, delayed
 from kneed import KneeLocator
 from numpy.typing import ArrayLike
-from robustats import medcouple
+from statsmodels.stats.stattools import medcouple
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.metrics import adjusted_mutual_info_score
 
-DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
 
 DistSide = Enum("DistSide", "left right both")
@@ -48,8 +47,9 @@ class MedcoupleError(Exception):
 @singledispatch
 def adjusted_boxplot(
     x,
-    k=DEFAULT_THRESHOLD,
-    frac=1,
+    x_max_size=10000,
+    frac=None,
+    k=1.5,
     n_jobs=1,
     parallel=None,
     random_state=None,
@@ -60,10 +60,10 @@ def adjusted_boxplot(
 
     Args:
       x: A 1-D ndarray of numeric values.
+      x_max_size: Maximum size of x. If the length of x exceeds this value, a
+                  random sample will be used instead of the full array.
       k: Factor for calculating outlier thresholds.
          Default value is 1.5.
-      frac: Fraction of the data to use for calculating the medcouple.
-            When set to 1, the entire array is used.
       n_jobs: Not used in this variant of adjusted_boxplot.
       parallel: Not used in this variant of adjusted_boxplot.
       random_state: Either an integer >= 0 or an instance of
@@ -80,6 +80,7 @@ def adjusted_boxplot(
 
     """
 
+    x = np.array(x)
     if x.ndim > 2:
         raise ValueError("adjusted_boxplot called with x.ndim > 2")
 
@@ -96,17 +97,18 @@ def adjusted_boxplot(
     else:
         raise ValueError(f"Got unexpected value for random_state: {random_state}")
 
-    if frac < 1:
-        x0 = rng.choice(x0, size=int(round(frac * len(x))), replace=False)
+    if x0.shape[0] > x_max_size:
+        x0 = rng.choice(x0, size=x_max_size, replace=False)
 
     q1, q3 = np.quantile(x0, [0.25, 0.75])
     iqr_ = q3 - q1
     mc = medcouple(x0)
     if np.isnan(mc):
-        error = "medcouple calculation resulted in nan"
+        error = "Medcouple calculation resulted in NaN."
         if raise_medcouple_error:
             raise MedcoupleError(error)
 
+        error += " Falling back to standard boxplot method."
         logger = logging.getLogger(__name__)
         logger.warning(error)
 
