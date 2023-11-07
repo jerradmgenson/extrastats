@@ -2,7 +2,7 @@
 extrastats implements all the statistics you've been missing from numpy,
 scipy, and statsmodels! Well, maybe not all of them. But some of them.
 
-Copyright 2022 Jerrad Michael Genson
+Copyright 2022-2023 Jerrad Michael Genson
 
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -14,19 +14,22 @@ import logging
 import math
 import numbers
 from collections import namedtuple
+from dataclasses import dataclass
 from enum import Enum
 from functools import partial, reduce, singledispatch, wraps
 from itertools import chain
-from typing import Sequence
+from typing import List, Tuple, Sequence, Union, Optional
 
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from kneed import KneeLocator
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 from robustats import medcouple
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.metrics import adjusted_mutual_info_score
+from scipy import stats
 
 DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
@@ -258,9 +261,7 @@ def permutation_test(
         arg0_len = len(args[0])
         for arg in args:
             if len(arg) != arg0_len:
-                raise ValueError(
-                    "Samples must be the same size in a samples permutation test."
-                )
+                raise ValueError("Samples must be the same size in a samples permutation test.")
 
         calc_permutation = partial(_samples_permutation, f, batch=batch)
 
@@ -271,9 +272,7 @@ def permutation_test(
         calc_permutation = partial(_bootstrap_permutation, f, batch=batch)
 
     else:
-        raise ValueError(
-            f"Got unexpected value for permutation_type: {permutation_type}"
-        )
+        raise ValueError(f"Got unexpected value for permutation_type: {permutation_type}")
 
     if isinstance(random_state, (int, np.int64)):
         rng = np.random.default_rng(seed=random_state)
@@ -289,9 +288,7 @@ def permutation_test(
 
     seeds = rng.integers(0, MAX_INT, iterations)
     sample_statistic = delayed(calc_permutation)(args, shuffle=False)
-    jobs = chain(
-        [sample_statistic], (delayed(calc_permutation)(args, seed) for seed in seeds)
-    )
+    jobs = chain([sample_statistic], (delayed(calc_permutation)(args, seed) for seed in seeds))
 
     permutation_statistics = np.array(parallel(jobs))
     if permutation_statistics.ndim == 1:
@@ -494,9 +491,7 @@ def _mutual_info_discrete(a, b, average_method="arithmetic"):
 
 # Calculate mutual information on continuous datasets.
 @accepts_random_state
-def _mutual_info_continuous(
-    a, b, discrete_features=False, n_neighbors=3, random_state=None
-):
+def _mutual_info_continuous(a, b, discrete_features=False, n_neighbors=3, random_state=None):
     a = a.reshape(-1, 1)
     return mutual_info_regression(
         a,
@@ -699,9 +694,7 @@ def ftrim(f, x, trim_amount=0.1):
 OptrimResult = namedtuple("OptrimResult", "statistic standard_error trim_amount")
 
 
-def optrim(
-    f, x, max_trim_amount=0.25, sensitivity=1, se_iterations=1000, random_state=None
-):
+def optrim(f, x, max_trim_amount=0.25, sensitivity=1, se_iterations=1000, random_state=None):
     """
     Calculate a trimmed statistic f of dataset x, using the standard error
     and the kneedle method to find the optimal trim amount.
@@ -765,3 +758,190 @@ def sum_prob(p: Sequence[float]) -> float:
         return 0.0
 
     return reduce(lambda x, y: x + y - x * y, p)
+
+
+@dataclass
+class BinnedData:
+    data: NDArray[int]
+    edges: NDArray[float]
+    error: float
+
+
+def tree_bin(
+    x: ArrayLike, min_bins: int = 2, max_bins: int = 40, random_state: int = 0
+) -> BinnedData:
+    """
+    Bins the given array 'x' by training a decision tree regressor and using its leaves as bin edges.
+
+    The function first fits a full decision tree regressor to the data and then applies cost complexity
+    pruning to find the optimal tree size within the specified range of bins. It uses the tree's leaves
+    to define bin edges and then assigns each element in 'x' to a bin. It also computes the root mean
+    square error of the binning as an error metric.
+
+    Args:
+      x (NDArray[float]): The input array to bin, should be a 1D array of floats.
+      min_bins (int, optional): The minimum number of bins to consider. Defaults to 2.
+      max_bins (int, optional): The maximum number of bins to consider. Defaults to 40.
+      random_state (int, optional): A seed for the random number generator for reproducibility. Defaults to 0.
+
+    Returns:
+      BinnedData: A dataclass instance containing the following fields:
+        - data (NDArray[int]): An array of the same shape as 'x', where each element is the index of the bin it belongs to.
+        - edges (NDArray[float]): The edges of the bins as determined by the decision tree.
+        - error (float): The root mean square error of the binning.
+
+    """
+
+    x = np.array(x)
+    x2d = x.reshape(-1, 1)
+
+    # Fit the full tree and get the effective alphas
+    full_tree = DecisionTreeRegressor(random_state=random_state)
+    full_tree.fit(x2d, x)
+    path = full_tree.cost_complexity_pruning_path(x2d, x)
+    ccp_alphas, impurities = path.ccp_alphas, path.impurities
+
+    # Prepare arrays for the number of leaves and MSE scores
+    leaves_scores = {}
+    trees = {}
+
+    # Iterate over the effective alphas and collect the number of leaves and MSE scores
+    for ccp_alpha in reversed(ccp_alphas):  # Reverse to start with the smallest tree
+        tree = DecisionTreeRegressor(random_state=random_state, ccp_alpha=ccp_alpha)
+        tree.fit(x2d, x)
+        mse = np.mean((tree.predict(x2d) - x) ** 2)
+        leaves = tree.get_n_leaves()
+        if (
+            min_bins <= leaves <= max_bins
+        ):  # Check if the number of leaves is within the desired range
+            leaves_scores[leaves] = mse
+            trees[leaves] = tree
+
+        elif leaves > max_bins:
+            break
+
+    # num_leaves now contains the number of leaves for trees in the range of 2 to 40 leaves
+    # mse_scores contains the corresponding MSE scores
+    # You can now plot or analyze these to choose the best tree size
+    try:
+        selected_num_leaves = round(
+            _locate_elbow(list(leaves_scores.values()), list(leaves_scores))
+        )
+        if selected_num_leaves == max_bins:
+            msg = "keedle method doesn't appear to have converged. Using fallback method."
+            raise RuntimeError(msg)
+
+    except RuntimeError as rte:
+        warnings.warn(str(rte), RuntimeWarning)
+        selected_num_leaves = max(min(round(np.log(len(x))), max_bins), min_bins)
+
+    selected_tree = trees[selected_num_leaves]
+    edges = _get_leaf_edges(selected_tree)
+    left_edges = np.unique([edge[0] for edge in edges if np.isfinite(edge[0])])
+    binned_data = np.digitize(x, left_edges)
+
+    return BinnedData(binned_data, left_edges, np.sqrt(leaves_scores[selected_num_leaves]))
+
+
+def _get_leaf_edges(
+    tree: DecisionTreeRegressor,
+    node_id: int = 0,
+    left_edge: float = -np.inf,
+    right_edge: float = np.inf,
+) -> List[Tuple[float, float]]:
+    """
+    Recursively traverses a decision tree to extract the edge values of each leaf node.
+
+    The function traverses the decision tree starting from the given node_id and collects
+    the left and right edge values for each leaf node encountered during the traversal. The
+    edge values are inclusive for the left edge and exclusive for the right edge, defining
+    the intervals represented by the leaf nodes of the tree.
+
+    Args:
+      tree (DecisionTreeRegressor): The trained decision tree regressor from which to extract leaf edges.
+      node_id (int, optional): The ID of the current node being traversed. Defaults to the root node with ID 0.
+      left_edge (float, optional): The left edge value of the current node interval. Defaults to -infinity, representing the leftmost edge of the tree.
+      right_edge (float, optional): The right edge value of the current node interval. Defaults to infinity, representing the rightmost edge of the tree.
+
+    Returns:
+      List[Tuple[float, float]]: A list of tuples, where each tuple contains the (left_edge, right_edge) values corresponding to a leaf node.
+
+    Note:
+      This function is meant to be used internally within the decision tree binning process and relies on the internal structure of the
+      sklearn.tree.DecisionTreeRegressor, which is not part of the public API and could change in future releases of scikit-learn.
+    """
+
+    # Check if we have a leaf
+    if tree.tree_.children_left[node_id] == tree.tree_.children_right[node_id] == -1:
+        # Return the edges corresponding to the leaf
+        return [(left_edge, right_edge)]
+    else:
+        edges = []
+        # Left child
+        left_child = tree.tree_.children_left[node_id]
+        left_threshold = tree.tree_.threshold[node_id]
+        edges.extend(_get_leaf_edges(tree, left_child, left_edge, left_threshold))
+
+        # Right child
+        right_child = tree.tree_.children_right[node_id]
+        right_threshold = tree.tree_.threshold[node_id]
+        edges.extend(_get_leaf_edges(tree, right_child, right_threshold, right_edge))
+
+        return edges
+
+
+Number = Union[int, float]
+
+
+def _locate_elbow(y: ArrayLike, x: Optional[ArrayLike] = None) -> Number:
+    """
+    Attempts to find the elbow point in a dataset using the kneedle method, which is indicative of the
+    'knee' or 'elbow' in a convex decreasing curve.
+
+    The function first checks if the data exhibits a generally decreasing and convex pattern. If so,
+    it applies the kneedle algorithm to locate the elbow point. The kneedle algorithm is useful for
+    determining the point of maximum curvature in such a curve, often used in the context of determining
+    optimal binning, cluster number, etc.
+
+    Args:
+      y (list or np.ndarray): The y-values of the curve, expected to be in a convex decreasing form.
+      x (list or np.ndarray, optional): The x-values corresponding to the y-values. If not provided, the
+                                        indices of the y-values are used.
+
+    Returns:
+      int or float: The x-value corresponding to the elbow point in the curve.
+
+    Raises:
+      RuntimeError: If the kneedle method fails to identify an elbow point due to the data not being
+                    decreasing or convex as required.
+
+    Note:
+    This function relies on the 'KneeLocator' from the 'kneed' package and 'kendalltau' from 'scipy.stats'.
+    It should be noted that the thresholds for determining if the data is decreasing and convex have been
+    empirically determined and may not be universally applicable.
+
+    Example:
+    >>> y = [0, 2, 4, 6, 7, 8, 9, 9, 10]
+    >>> _locate_elbow(y)
+    4  # This would return the index of '7' in the list, as the hypothetical elbow point.
+
+    """
+
+    # These values were determined empirically via Monte Carlo simulation.
+    decreasing_threshold = -0.2
+    convex_threshold = 0.1
+
+    # First check to see if this data can be used with the kneedle method.
+    decreasing = stats.kendalltau(np.arange(len(y)), y)[0] <= decreasing_threshold
+    y_deriv = np.gradient(y, np.arange(len(y)))
+    convex = stats.kendalltau(np.arange(len(y_deriv)), y_deriv)[0] >= convex_threshold
+    if decreasing and convex:
+        if x is None:
+            x = np.arange(len(y))
+
+        kneedle = KneeLocator(x, y, curve="convex", direction="decreasing")
+        if kneedle.elbow is not None:
+            return kneedle.elbow
+
+    msg = f"kneedle method failed to locate optimal bins. Decreasing: {decreasing} Convex: {convex}"
+    raise RuntimeError(msg)
