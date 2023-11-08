@@ -1,6 +1,5 @@
 """
-extrastats implements all the statistics you've been missing from numpy,
-scipy, and statsmodels! Well, maybe not all of them. But some of them.
+A library of extra statistical routines for Python.
 
 Copyright 2022-2023 Jerrad Michael Genson
 
@@ -13,6 +12,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import logging
 import math
 import numbers
+import warnings
 from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum
@@ -20,6 +20,7 @@ from functools import partial, reduce, singledispatch, wraps
 from itertools import chain
 from typing import List, Tuple, Sequence, Union, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
@@ -790,9 +791,34 @@ def tree_bin(
         - edges (NDArray[float]): The edges of the bins as determined by the decision tree.
         - error (float): The root mean square error of the binning.
 
+    Raises:
+      ValueError: If the input array 'x' is empty, indicating that binning cannot be performed.
+
     """
 
     x = np.array(x)
+    if x.size == 0:
+        msg = "Input array 'x' is empty. Binning cannot be performed on an empty array."
+        raise ValueError(msg)
+
+    unique_values = np.unique(x)
+    if unique_values.size < 5 or x.size < 10:
+        warning_msg = (
+            f"Input array 'x' has less than 5 unique values or is smaller than 10 elements "
+            f"({'size' if x.size < 10 else 'unique count'} is {min(x.size, unique_values.size)}). "
+            "Using simple integer encoding instead."
+        )
+
+        warnings.warn(warning_msg, UserWarning)
+        labels, binned_data = np.unique(x, return_inverse=True)
+        return BinnedData(data=binned_data, edges=labels, error=0.0)
+
+    if min_bins < 2:
+        raise ValueError("'min_bins' can not be less than 2.")
+
+    if max_bins <= min_bins:
+        raise ValueError("'max_bins' must be greater than 'min_bins'.")
+
     x2d = x.reshape(-1, 1)
 
     # Fit the full tree and get the effective alphas
@@ -801,7 +827,7 @@ def tree_bin(
     path = full_tree.cost_complexity_pruning_path(x2d, x)
     ccp_alphas, impurities = path.ccp_alphas, path.impurities
 
-    # Prepare arrays for the number of leaves and MSE scores
+    # Prepare dicts for the number of leaves and MSE scores
     leaves_scores = {}
     trees = {}
 
@@ -828,7 +854,7 @@ def tree_bin(
             _locate_elbow(list(leaves_scores.values()), list(leaves_scores))
         )
         if selected_num_leaves == max_bins:
-            msg = "keedle method doesn't appear to have converged. Using fallback method."
+            msg = "kneedle method doesn't appear to have converged. Using fallback method."
             raise RuntimeError(msg)
 
     except RuntimeError as rte:
@@ -890,10 +916,7 @@ def _get_leaf_edges(
         return edges
 
 
-Number = Union[int, float]
-
-
-def _locate_elbow(y: ArrayLike, x: Optional[ArrayLike] = None) -> Number:
+def _locate_elbow(y: ArrayLike, x: Optional[ArrayLike] = None) -> Union[int, float]:
     """
     Attempts to find the elbow point in a dataset using the kneedle method, which is indicative of the
     'knee' or 'elbow' in a convex decreasing curve.
@@ -945,3 +968,49 @@ def _locate_elbow(y: ArrayLike, x: Optional[ArrayLike] = None) -> Number:
 
     msg = f"kneedle method failed to locate optimal bins. Decreasing: {decreasing} Convex: {convex}"
     raise RuntimeError(msg)
+
+
+def plot_bins(data: ArrayLike, bin_edges: ArrayLike) -> Tuple[plt.Figure, plt.Axes]:
+    """
+    Plot the distribution of the data and overlay the bin edges.
+
+    This function creates a histogram to visualize the distribution of the data
+    and adds vertical lines representing the bin edges. The plot is displayed
+    on screen, and the function returns the matplotlib figure and axes objects
+    for further customization or saving.
+
+    Args:
+      data: np.ndarray
+        The 1D array of data points to be binned and plotted.
+      bin_edges: np.ndarray
+        An array of bin edge values to be plotted as vertical lines on the histogram.
+
+    Returns:
+      Tuple[plt.Figure, plt.Axes]
+        A tuple containing the figure and axes objects of the plot.
+
+    """
+
+    data = np.array(data)
+    bin_edges = np.array(bin_edges)
+
+    # Create histogram of the data
+    fig, ax = plt.subplots()
+    ax.hist(data, bins=30, alpha=0.5, color="blue", label="Data histogram")
+
+    # Add vertical lines for the bin edges
+    for edge in bin_edges:
+        ax.axvline(edge, color="red", linestyle="dashed", linewidth=2, label="Bin edge")
+
+    ax.set_xlabel("Value")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Histogram with Bin Edges")
+
+    # We use a trick to create a single legend entry for bin edges
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys())
+
+    plt.show()
+
+    return fig, ax
