@@ -9,9 +9,12 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
 
+import warnings
 import unittest
 from unittest.mock import MagicMock, patch
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 from sklearn.metrics import mean_squared_error
@@ -129,9 +132,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(0, 100, 10000)
-        test_result = es.permutation_test(
-            np.mean, a, b, random_state=rng, iterations=500
-        )
+        test_result = es.permutation_test(np.mean, a, b, random_state=rng, iterations=500)
 
         self.assertAlmostEqual(test_result.pvalue, 0.112)
         self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
@@ -141,9 +142,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(0, 100, 10000)
-        test_result = es.permutation_test(
-            np.mean, a, b, random_state=rng, iterations=10000
-        )
+        test_result = es.permutation_test(np.mean, a, b, random_state=rng, iterations=10000)
 
         self.assertAlmostEqual(test_result.pvalue, 0.1146)
         self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
@@ -810,9 +809,7 @@ class TestMutualInfo(unittest.TestCase):
     def test_correctly_identifies_continuous_dependent_variables(self):
         a = np.repeat(np.arange(1, 11, 0.1), 10)
         b = np.sin(a)
-        test_result = es.test_mutual_info(
-            a, b, a_discrete=False, b_discrete=False, random_state=0
-        )
+        test_result = es.test_mutual_info(a, b, a_discrete=False, b_discrete=False, random_state=0)
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic, 4.66252284)
@@ -820,9 +817,7 @@ class TestMutualInfo(unittest.TestCase):
     def test_correctly_identifies_mixed_dependent_variables1(self):
         a = np.repeat(np.arange(1, 11), 10)
         b = np.sin(a)
-        test_result = es.test_mutual_info(
-            a, b, a_discrete=True, b_discrete=False, random_state=0
-        )
+        test_result = es.test_mutual_info(a, b, a_discrete=True, b_discrete=False, random_state=0)
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic, 2.34840926)
@@ -830,9 +825,7 @@ class TestMutualInfo(unittest.TestCase):
     def test_correctly_identifies_mixed_dependent_variables2(self):
         a = np.repeat(np.arange(1, 11), 10)
         b = np.sin(a)
-        test_result = es.test_mutual_info(
-            b, a, a_discrete=False, b_discrete=True, random_state=0
-        )
+        test_result = es.test_mutual_info(b, a, a_discrete=False, b_discrete=True, random_state=0)
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic, 2.34840926)
@@ -863,9 +856,7 @@ class TestMutualInfo(unittest.TestCase):
         b = np.sin(a)
         rng = np.random.default_rng(0)
         rng.shuffle(b)
-        test_result = es.test_mutual_info(
-            a, b, a_discrete=True, b_discrete=False, random_state=0
-        )
+        test_result = es.test_mutual_info(a, b, a_discrete=True, b_discrete=False, random_state=0)
 
         self.assertAlmostEqual(test_result.pvalue, 1.0)
         self.assertAlmostEqual(test_result.statistic, 0.0)
@@ -875,9 +866,7 @@ class TestMutualInfo(unittest.TestCase):
         b = np.sin(a)
         rng = np.random.default_rng(0)
         rng.shuffle(a)
-        test_result = es.test_mutual_info(
-            b, a, a_discrete=False, b_discrete=True, random_state=0
-        )
+        test_result = es.test_mutual_info(b, a, a_discrete=False, b_discrete=True, random_state=0)
 
         self.assertAlmostEqual(test_result.pvalue, 1.0)
         self.assertAlmostEqual(test_result.statistic, 0.0)
@@ -931,9 +920,7 @@ class TestAdjustedBoxplot(unittest.TestCase):
 
     def test_uniform_distribution_ndarray_with_two_outliers(self):
         rng = np.random.default_rng(0)
-        x = np.concatenate(
-            [rng.uniform(-100, 100, 1000), np.full(1, 10000), np.full(1, -10000)]
-        )
+        x = np.concatenate([rng.uniform(-100, 100, 1000), np.full(1, 10000), np.full(1, -10000)])
 
         low, high = es.adjusted_boxplot(x)
         y = x[np.logical_or(x < low, x > high)]
@@ -1221,6 +1208,136 @@ class TestHVar(unittest.TestCase):
         x = [10, 20]
         result = es.hvar(x)
         self.assertAlmostEqual(result, 9.876543209876539)
+
+
+class TestTreeBin(unittest.TestCase):
+    def test_tree_bin_results_self_consistent(self):
+        rng = np.random.default_rng(0)
+        data = rng.normal(0, 1, size=1000)
+        binned_data = es.tree_bin(data)
+        self.assertEqual(len(np.unique(binned_data.data)), len(binned_data.edges) + 1)
+        self.assertLess(binned_data.error, 1)
+
+    def test_tree_bin_with_uniform_data(self):
+        rng = np.random.default_rng(0)
+        data = rng.uniform(0, 100, size=1000)
+        binned_data = es.tree_bin(data)
+        expected = np.array([12.8638, 25.714, 37.8928, 50.5431, 62.7561, 74.5983, 87.1358])
+        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
+
+    def test_tree_bin_stable_solutions(self):
+        rng = np.random.default_rng(0)
+        data = rng.uniform(0, 100, size=1000)
+        binned_data1 = es.tree_bin(data, random_state=0)
+        binned_data2 = es.tree_bin(data, random_state=1)
+        binned_data3 = es.tree_bin(data, random_state=2)
+        self.assertTrue(np.all(np.round(binned_data1.edges, 4) == np.round(binned_data2.edges, 4)))
+        self.assertTrue(np.all(np.round(binned_data1.edges, 4) == np.round(binned_data3.edges, 4)))
+
+    def test_tree_bin_with_normal_data(self):
+        rng = np.random.default_rng(0)
+        data = rng.normal(50, 10, size=1000)
+        binned_data = es.tree_bin(data)
+        expected = np.array([31.597, 40.5797, 45.6539, 50.1528, 54.7038, 59.5075, 66.1234])
+        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
+
+    def test_tree_bin_with_bimodal_data(self):
+        rng = np.random.default_rng(0)
+        data = np.concatenate([rng.normal(30, 5, size=500), rng.normal(70, 5, size=500)])
+        binned_data = es.tree_bin(data)
+        expected = np.array([25.0543, 30.0923, 34.6371, 50.3449, 65.3175, 69.824, 74.6902])
+        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
+
+    def test_tree_bin_with_boundary_data(self):
+        rng = np.random.default_rng(0)
+        data = np.concatenate([rng.uniform(0, 30, size=500), rng.uniform(70, 100, size=500)])
+        binned_data = es.tree_bin(data)
+        expected = np.array([7.5495, 15.1447, 22.6656, 49.961, 77.6565, 85.1943, 92.346])
+        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
+
+    def test_tree_bin_with_array_size6(self):
+
+        with warnings.catch_warnings(record=True) as w:
+            binned_data = es.tree_bin([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+            self.assertEqual(len(w), 1)
+
+        self.assertEqual(len(binned_data.edges), 6)
+        self.assertEqual(len(binned_data.data), 6)
+        self.assertEqual(len(np.unique(binned_data.data)), 6)
+        self.assertEqual(binned_data.error, 0)
+
+    def test_tree_bin_with_empty_array(self):
+        with self.assertRaises(ValueError):
+            es.tree_bin([])
+
+    @patch("extrastats._locate_elbow")
+    def test_tree_bin_with_kneedle_convergence_failure(self, _locate_elbow_mock):
+        _locate_elbow_mock.side_effect = RuntimeError()
+        rng = np.random.default_rng(0)
+        data = rng.normal(0, 1, 1000)
+        with warnings.catch_warnings(record=True) as w:
+            binned_data = es.tree_bin(data)
+            self.assertEqual(len(w), 1)
+
+        self.assertEqual(len(binned_data.edges), 6)
+        self.assertEqual(len(np.unique(binned_data.data)), 7)
+
+    def test_tree_bin_with_fewer_than_five_unique_values(self):
+        x = [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+        with warnings.catch_warnings(record=True) as w:
+            binned_data = es.tree_bin(x)
+            self.assertEqual(len(w), 1)
+
+        self.assertEqual(len(binned_data.edges), 3)
+        self.assertEqual(len(binned_data.data), len(x))
+        self.assertEqual(binned_data.error, 0)
+
+    def test_tree_bin_with_min_bins_lt_2(self):
+        rng = np.random.default_rng(0)
+        data = rng.normal(0, 1, 1000)
+        with self.assertRaises(ValueError):
+            es.tree_bin(data, min_bins=1)
+
+    def test_tree_bin_with_max_bins_lte_min_bins(self):
+        rng = np.random.default_rng(0)
+        data = rng.normal(0, 1, 1000)
+        with self.assertRaises(ValueError):
+            es.tree_bin(data, max_bins=2)
+
+    def test_tree_bin_with_crazy_data(self):
+        rng = np.random.default_rng(0)
+        crazy_data = np.concatenate(
+            [
+                rng.normal(0, 10, 1000),
+                rng.uniform(0, 100, 500),
+                rng.normal(70, 5, 500),
+                rng.uniform(60, 70, 300),
+            ]
+        )
+
+        crazy_data = crazy_data[crazy_data >= 0]
+        binned_data = es.tree_bin(crazy_data)
+        expected = np.array([7.4289, 17.2327, 28.2005, 40.1679, 58.2644, 66.249, 73.1917, 85.0136])
+        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
+
+
+class TestPlotBins(unittest.TestCase):
+    def setUp(self):
+        # Use the non-interactive backend for testing
+        matplotlib.use("Agg")
+        plt.ioff()
+
+    def test_plot_bins_with_typical_arguments(self):
+        rng = np.random.default_rng(0)
+        data = rng.normal(0, 1, 100)
+        binned_data = es.tree_bin(data)
+        with warnings.catch_warnings(record=True):
+            fig, ax = es.plot_bins(data, binned_data.edges)
+
+        self.assertIsInstance(fig, plt.Figure)
+        self.assertIsInstance(ax, plt.Axes)
+        lines = ax.get_lines()
+        self.assertEqual(len(lines), len(binned_data.edges))
 
 
 if __name__ == "__main__":
