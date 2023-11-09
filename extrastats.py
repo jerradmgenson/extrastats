@@ -1,5 +1,6 @@
 """
-A library of extra statistical routines for Python.
+extrastats is a library of high-quality statistical routines that are
+missing from the mainstream Python packages.
 
 Copyright 2022-2023 Jerrad Michael Genson
 
