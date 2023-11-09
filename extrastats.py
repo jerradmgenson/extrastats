@@ -1,5 +1,6 @@
 """
-A library of extra statistical routines for Python.
+extrastats is a library of high-quality statistical routines that are
+missing from the mainstream Python packages.
 
 Copyright 2022-2023 Jerrad Michael Genson
 
@@ -18,7 +19,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import partial, reduce, singledispatch, wraps
 from itertools import chain
-from typing import List, Tuple, Sequence, Union, Optional
+from typing import List, Optional, Sequence, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,10 +28,10 @@ from joblib import Parallel, delayed
 from kneed import KneeLocator
 from numpy.typing import ArrayLike, NDArray
 from robustats import medcouple
-from sklearn.tree import DecisionTreeRegressor
+from scipy import stats
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.metrics import adjusted_mutual_info_score
-from scipy import stats
+from sklearn.tree import DecisionTreeRegressor
 
 DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
@@ -1014,3 +1015,79 @@ def plot_bins(data: ArrayLike, bin_edges: ArrayLike) -> Tuple[plt.Figure, plt.Ax
     plt.show()
 
     return fig, ax
+
+
+MINorm = Enum("MINorm", ("min_info", "max_info", "avg_info", "none"))
+
+
+def mutual_info(
+    x: ArrayLike, y: ArrayLike, base: Union[int, float] = 2, norm: MINorm = MINorm.min_info
+) -> float:
+    """
+    Calculate the mutual information between two discrete variables.
+
+    Mutual information quantifies the amount of information obtained about one random variable by
+    observing the other random variable. The function can also normalize the mutual information with respect to the
+    minimum, maximum, or average of the entropies of the variables.
+
+    Args:
+      x: A list or NumPy array of samples from the first random variable.
+      y: A list or NumPy array of samples from the second random variable. Must be the same length as x.
+      base: The logarithmic base to use when calculating the mutual information. Default is 2 (binary log).
+      norm: An enum indicating the type of normalization to apply to the mutual information. Options are:
+            - MINorm.min_info: Normalize by the minimum entropy of the two variables (Default).
+            - MINorm.max_info: Normalize by the maximum entropy of the two variables.
+            - MINorm.avg_info: Normalize by the average entropy of the two variables.
+            - MINorm.none: No normalization.
+
+    Returns:
+      float: The calculated mutual information. If normalization is applied, the mutual information
+             is divided by the specified entropy measure.
+
+    Raises:
+      ValueError: If the input arrays x and y are not of the same length.
+
+    """
+
+    if base <= 0:
+        raise ValueError("'base' must be a number greater than 0.")
+
+    if len(x) != len(y):
+        raise ValueError("Arrays 'x' and 'y' must be the same length.")
+
+    x = np.array(x)
+    y = np.array(y)
+    norm = MINorm(norm)
+
+    mutual_information = 0
+    x_labels = np.unique(x)
+    y_labels = np.unique(y)
+    px = [np.mean(x == xi) for xi in x_labels]
+    py = [np.mean(y == yi) for yi in y_labels]
+    for pxi, xi in zip(px, x_labels):
+        for pyi, yi in zip(py, y_labels):
+            pxy = np.mean(np.logical_and(x == xi, y == yi))
+            if pxy != 0:
+                mutual_information += pxy * (np.log2(pxy / (pxi * pyi)) / np.log2(base))
+
+    if norm != MINorm.none:
+        x_entropy = stats.entropy(px, base=base)
+        y_entropy = stats.entropy(py, base=base)
+        if x_entropy == 0 and y_entropy == 0:
+            return 0.0
+
+        elif norm == MINorm.avg_info:
+            normalization_factor = (x_entropy + y_entropy) / 2
+
+        elif x_entropy == 0 or y_entropy == 0:
+            return 0.0
+
+        elif norm == MINorm.min_info:
+            normalization_factor = min(x_entropy, y_entropy)
+
+        else:
+            normalization_factor = max(x_entropy, y_entropy)
+
+        mutual_information = mutual_information / normalization_factor
+
+    return mutual_information
