@@ -9,8 +9,12 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
 
+import base64
+import json
+import lzma
 import warnings
 import unittest
+from functools import cache
 from unittest.mock import MagicMock, patch
 
 import matplotlib
@@ -1338,6 +1342,152 @@ class TestPlotBins(unittest.TestCase):
         self.assertIsInstance(ax, plt.Axes)
         lines = ax.get_lines()
         self.assertEqual(len(lines), len(binned_data.edges))
+
+
+class TestMutualInfo(unittest.TestCase):
+    def test_mutual_info_with_random_integers(self):
+        rng = np.random.default_rng(0)
+        x = rng.integers(0, 5, 1000)
+        y = rng.integers(0, 5, 1000)
+        mi = es.mutual_info(x, y)
+        self.assertLess(mi, 0.012)
+
+    def test_mutual_info_with_linear_data(self):
+        x = np.repeat(np.arange(10), 10)
+        y = x * 3 + 9
+        mi = es.mutual_info(x, y)
+        self.assertAlmostEqual(mi, 1)
+
+    def test_mutual_info_with_exponential_data(self):
+        x = np.repeat(np.arange(10), 10)
+        y = x ** x
+        mi = es.mutual_info(x, y)
+        self.assertAlmostEqual(mi, 1)
+
+    def test_mutual_info_with_sinusoidal_data(self):
+        x = np.repeat(np.arange(10), 10)
+        y = np.sin(x)
+        _, y_binned = np.unique(y, return_inverse=True)
+        mi = es.mutual_info(x, y_binned)
+        self.assertAlmostEqual(mi, 1)
+
+    def test_mutual_info_with_50_perc_random_data(self):
+        x = np.repeat(np.arange(10), 10)
+        y = x * 10
+        selector = np.where(np.arange(y.size) % 2 == 0)[0]
+        rng = np.random.default_rng(0)
+        np.put(y, selector, rng.choice(np.unique(y), selector.size))
+        mi = es.mutual_info(x, y)
+        self.assertAlmostEqual(mi, 0.45, 2)  # Target value calculated manually
+
+    def test_mutual_info_with_25_perc_random_data(self):
+        x = np.repeat(np.arange(10), 10)
+        y = x * 10
+        selector = np.where(np.arange(y.size) % 4 == 0)[0]
+        rng = np.random.default_rng(0)
+        np.put(y, selector, rng.choice(np.unique(y), selector.size))
+        mi = es.mutual_info(x, y)
+        self.assertAlmostEqual(mi, 0.7, 2)  # Target value calculated manually
+
+    def test_mutual_info_with_non_uniform_data(self):
+        x = np.array([0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4])
+        x = np.repeat(x, 10)
+        y = x * 5
+        mi = es.mutual_info(x, y)
+        self.assertAlmostEqual(mi, 1)
+
+    def test_mutual_info_with_non_uniform_50_perc_random_data(self):
+        x = np.array([0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4])
+        x = np.repeat(x, 10)
+        y = x * 5
+        selector = np.where(np.arange(y.size) % 2 == 0)[0]
+        rng = np.random.default_rng(0)
+        np.put(y, selector, rng.choice(np.unique(y), selector.size))
+        mi = es.mutual_info(x, y)
+        self.assertAlmostEqual(mi, 0.25, 2)
+
+    def test_mutual_info_with_different_size_arrays(self):
+        x = np.arange(10)
+        y = np.arange(9)
+        with self.assertRaises(ValueError):
+            es.mutual_info(x, y)
+
+    def test_mutual_info_with_empty_arrays(self):
+        mi = es.mutual_info([], [])
+        self.assertEqual(mi, 0)
+
+    def test_mutual_info_with_size1_arrays(self):
+        mi = es.mutual_info([1], [3])
+        self.assertEqual(mi, 0)
+
+    def test_mutual_info_with_size2_arrays(self):
+        mi = es.mutual_info([1, 2], [3, 4])
+        self.assertEqual(mi, 1)
+
+    def test_mutual_info_with_one_unique_label(self):
+        x = np.ones(100)
+        y = np.zeros(100)
+        mi = es.mutual_info(x, y)
+        self.assertEqual(mi, 0)
+
+    def test_mutual_info_with_max_info_norm(self):
+        x = np.repeat(np.arange(10), 10)
+        y = x * 10
+        selector = np.where(np.arange(y.size) % 2 == 0)[0]
+        np.put(y, selector, -1)
+        mi = es.mutual_info(x, y, norm=es.MINorm.max_info)
+        self.assertAlmostEqual(mi, 0.5, 2)
+
+    def test_mutual_info_with_avg_info_norm(self):
+        x = np.repeat(np.arange(10), 10)
+        y = x * 10
+        selector = np.where(np.arange(y.size) % 2 == 0)[0]
+        np.put(y, selector, -1)
+        mi = es.mutual_info(x, y, norm=es.MINorm.avg_info)
+        self.assertAlmostEqual(mi, 0.56, 2)
+
+    def test_mutual_info_with_invalid_norm(self):
+        with self.assertRaises(ValueError):
+            es.mutual_info([], [], norm=None)
+
+    def test_mutual_info_with_base_e(self):
+        x = np.repeat(np.arange(10), 10)
+        y = x * 10
+        selector = np.where(np.arange(y.size) % 2 == 0)[0]
+        np.put(y, selector, -1)
+        mi = es.mutual_info(x, y, norm=es.MINorm.none, base=np.e)
+        self.assertAlmostEqual(mi, 1.15, 2)
+
+    def test_mutual_info_with_base_0(self):
+        with self.assertRaises(ValueError):
+            es.mutual_info([], [], base=0)
+
+    def test_mutual_info_with_negative_base(self):
+        with self.assertRaises(ValueError):
+            es.mutual_info([], [], base=-1)
+
+    def test_mutual_info_with_titanic_data(self):
+        titanic = load_data("titanic")
+        mi = es.mutual_info(titanic["sex"], titanic["survived"])
+        self.assertAlmostEqual(mi, 0.23, 2)
+
+    def test_mutual_info_with_census_occupation_education(self):
+        census = load_data("census")
+        mi = es.mutual_info(census["occupation"], census["education"])
+        self.assertAlmostEqual(mi, 0.11, 2)
+
+    def test_mutual_info_with_census_marital_status_relationship(self):
+        census = load_data("census")
+        mi = es.mutual_info(census["marital_status"], census["relationship"])
+        self.assertAlmostEqual(mi, 0.57, 2)
+
+
+@cache
+def load_data(dataset):
+    with lzma.open(f"{dataset}.json.xz") as fp:
+        census_encoded = fp.read()
+
+    return json.loads(census_encoded.decode("utf-8"))
 
 
 if __name__ == "__main__":
