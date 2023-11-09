@@ -9,12 +9,11 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
 
-import base64
 import json
 import lzma
 import unittest
 import warnings
-from functools import cache
+from functools import lru_cache
 from unittest.mock import MagicMock, patch
 
 import matplotlib
@@ -1482,7 +1481,7 @@ class TestMutualInfo(unittest.TestCase):
         self.assertAlmostEqual(mi, 0.57, 2)
 
 
-@cache
+@lru_cache
 def load_data(dataset):
     with lzma.open(f"{dataset}.json.xz") as fp:
         census_encoded = fp.read()
