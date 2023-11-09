@@ -12,8 +12,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import base64
 import json
 import lzma
-import warnings
 import unittest
+import warnings
 from functools import cache
 from unittest.mock import MagicMock, patch
 
@@ -1360,7 +1360,7 @@ class TestMutualInfo(unittest.TestCase):
 
     def test_mutual_info_with_exponential_data(self):
         x = np.repeat(np.arange(10), 10)
-        y = x ** x
+        y = x**x
         mi = es.mutual_info(x, y)
         self.assertAlmostEqual(mi, 1)
 

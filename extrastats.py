@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import partial, reduce, singledispatch, wraps
 from itertools import chain
-from typing import List, Tuple, Sequence, Union, Optional
+from typing import List, Optional, Sequence, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,10 +27,10 @@ from joblib import Parallel, delayed
 from kneed import KneeLocator
 from numpy.typing import ArrayLike, NDArray
 from robustats import medcouple
-from sklearn.tree import DecisionTreeRegressor
+from scipy import stats
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.metrics import adjusted_mutual_info_score
-from scipy import stats
+from sklearn.tree import DecisionTreeRegressor
 
 DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
@@ -1019,7 +1019,9 @@ def plot_bins(data: ArrayLike, bin_edges: ArrayLike) -> Tuple[plt.Figure, plt.Ax
 MINorm = Enum("MINorm", ("min_info", "max_info", "avg_info", "none"))
 
 
-def mutual_info(x: ArrayLike, y: ArrayLike, base: Union[int, float] = 2, norm: MINorm = MINorm.min_info) -> float:
+def mutual_info(
+    x: ArrayLike, y: ArrayLike, base: Union[int, float] = 2, norm: MINorm = MINorm.min_info
+) -> float:
     """
     Calculate the mutual information between two discrete variables.
 
@@ -1073,16 +1075,18 @@ def mutual_info(x: ArrayLike, y: ArrayLike, base: Union[int, float] = 2, norm: M
         if x_entropy == 0 and y_entropy == 0:
             return 0.0
 
-        if norm == MINorm.avg_info:
-            return mutual_information / ((x_entropy + y_entropy) / 2)
+        elif norm == MINorm.avg_info:
+            normalization_factor = (x_entropy + y_entropy) / 2
 
-        if x_entropy == 0 or y_entropy == 0:
+        elif x_entropy == 0 or y_entropy == 0:
             return 0.0
 
-        if norm == MINorm.min_info:
-            return mutual_information / min(x_entropy, y_entropy)
+        elif norm == MINorm.min_info:
+            normalization_factor = min(x_entropy, y_entropy)
 
         else:
-            return mutual_information / max(x_entropy, y_entropy)
+            normalization_factor = max(x_entropy, y_entropy)
+
+        mutual_information = mutual_information / normalization_factor
 
     return mutual_information
