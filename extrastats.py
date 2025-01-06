@@ -435,7 +435,7 @@ def confidence_interval(
     n_jobs: int = 1,
     parallel: Optional[Parallel] = None,
     random_state: Optional[Union[int, np.random.Generator]] = None,
-) -> Tuple[Dict[float, Tuple[float, float]], List[float]]:
+) -> Tuple[Dict[float, Tuple[float, float]], np.ndarray]:
     """
     Compute bootstrap confidence intervals for a statistic.
 
@@ -454,7 +454,7 @@ def confidence_interval(
 
     Returns:
         tuple: A dictionary mapping confidence levels to confidence intervals,
-               and the list of bootstrap statistics.
+               and the NumPy array of bootstrap statistics.
 
     Raises:
         ValueError: If `random_state` is of an unexpected type.
@@ -477,12 +477,27 @@ def confidence_interval(
     else:
         raise ValueError(f"Got unexpected value for random_state: {random_state}")
 
+    if iterations < 1:
+        raise ValueError("Number of iterations must be at least 1.")
+
+    if not levels:
+        raise ValueError("At least one confidence level must be specified.")
+
+    if not all(0 < level < 1 for level in levels):
+        raise ValueError("All confidence levels must be between 0 and 1.")
+
     # Convert inputs to NumPy arrays
     groups = [np.array(x) for x in [a] + list(args)]
 
+    if any(len(group) <= 1 for group in groups):
+        raise ValueError(
+            "All groups must contain at least two elements to compute meaningful confidence intervals."
+        )
+
     # Warn if groups have unequal sizes
     if not np.all(np.array([len(g) for g in groups]) == len(groups[0])):
-        warnings.warn("Groups are not all equally sized!")
+        msg = "Groups are not all equally sized! Ensure that this is appropriate for the statistic being computed."
+        warnings.warn(msg, UserWarning)
 
     # Bootstrap resampling function
     def resample(seed: int) -> float:
@@ -497,13 +512,14 @@ def confidence_interval(
     )
 
     # Calculate quantiles for confidence intervals
-    quantiles = list(
-        chain.from_iterable([[(1 - level) / 2, 1 - (1 - level) / 2] for level in levels])
-    )
+    quantiles = []
+    for level in levels:
+        quantiles.extend([(1 - level) / 2, 1 - (1 - level) / 2])
+
     intervals = list(batched(np.quantile(bootstrap_statistic, quantiles), 2))
 
     # Return confidence intervals and bootstrap statistics
-    confidence_intervals = {level: interval for level, interval in zip(levels, intervals)}
+    confidence_intervals = dict(zip(levels, intervals))
     return confidence_intervals, np.array(bootstrap_statistic)
 
 
