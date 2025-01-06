@@ -18,8 +18,8 @@ from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial, reduce, singledispatch, wraps
-from itertools import chain
-from typing import List, Optional, Sequence, Tuple, Union
+from itertools import batched, chain
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,7 +27,17 @@ import pandas as pd
 from joblib import Parallel, delayed
 from kneed import KneeLocator
 from numpy.typing import ArrayLike, NDArray
-from robustats import medcouple
+
+try:
+    from robustats import medcouple
+
+except ImportError:
+    warnings.warn(
+        "Can't import robustats. Using 'medcouple' implementation from statsmodels.", UserWarning
+    )
+
+    from statsmodels.stats.stattools import medcouple
+
 from scipy import stats
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.metrics import adjusted_mutual_info_score
@@ -414,6 +424,103 @@ def accepts_random_state(f):
 
     f._accepts_random_state = True
     return f
+
+
+def confidence_interval(
+    f: Callable[..., float],
+    a: Union[np.ndarray, List[float]],
+    *args: Union[np.ndarray, List[float]],
+    iterations: int = 2000,
+    levels: Tuple[float, ...] = (0.9, 0.95, 0.99),
+    n_jobs: int = 1,
+    parallel: Optional[Parallel] = None,
+    random_state: Optional[Union[int, np.random.Generator]] = None,
+) -> Tuple[Dict[float, Tuple[float, float]], np.ndarray]:
+    """
+    Compute bootstrap confidence intervals for a statistic.
+
+    Parameters:
+        f (Callable): Function to compute the statistic of interest. It should accept
+                      the groups `a` and `*args` as arguments.
+        a (array-like): The first group of data.
+        *args: Additional groups of data.
+        iterations (int): Number of bootstrap iterations. Default is 2000.
+                          Increase for higher precision, especially for extreme
+                          confidence levels.
+        levels (tuple): Confidence levels to compute (e.g., (0.9, 0.95, 0.99)).
+        n_jobs (int): Number of parallel jobs. Default is 1 (no parallelization).
+        parallel (joblib.Parallel, optional): Custom Parallel instance. If None, a new one is created.
+        random_state (int, np.random.Generator, or None): Random seed or generator for reproducibility.
+
+    Returns:
+        tuple: A dictionary mapping confidence levels to confidence intervals,
+               and the NumPy array of bootstrap statistics.
+
+    Raises:
+        ValueError: If `random_state` is of an unexpected type.
+
+    """
+
+    if parallel is None:
+        parallel = Parallel(n_jobs=n_jobs)
+
+    # Initialize random number generator
+    if isinstance(random_state, (int, np.integer)):
+        rng = np.random.default_rng(seed=random_state)
+
+    elif isinstance(random_state, np.random.Generator):
+        rng = random_state
+
+    elif random_state is None:
+        rng = np.random.default_rng()
+
+    else:
+        raise ValueError(f"Got unexpected value for random_state: {random_state}")
+
+    if iterations < 1:
+        raise ValueError("Number of iterations must be at least 1.")
+
+    if not levels:
+        raise ValueError("At least one confidence level must be specified.")
+
+    if not all(0 < level < 1 for level in levels):
+        raise ValueError("All confidence levels must be between 0 and 1.")
+
+    # Convert inputs to NumPy arrays
+    groups = [np.array(x) for x in [a] + list(args)]
+
+    if any(len(group) <= 1 for group in groups):
+        raise ValueError(
+            "All groups must contain at least two elements to compute meaningful confidence intervals."
+        )
+
+    # Warn if groups have unequal sizes
+    if not np.all(np.array([len(g) for g in groups]) == len(groups[0])):
+        msg = "Groups are not all equally sized! Ensure that this is appropriate for the statistic being computed."
+        warnings.warn(msg, UserWarning)
+
+    # Bootstrap resampling function
+    def resample(seed: int) -> float:
+        rng = np.random.default_rng(seed)
+        resampled_groups = [rng.choice(g, size=len(g), replace=True) for g in groups]
+        return f(*resampled_groups)
+
+    # Generate bootstrap statistics
+    max_int64 = np.iinfo(np.int64).max
+    bootstrap_statistic = parallel(
+        delayed(resample)(i) for i in rng.integers(max_int64, size=iterations)
+    )
+
+    # Calculate quantiles for confidence intervals
+    quantiles = []
+    for level in levels:
+        quantiles.extend([(1 - level) / 2, 1 - (1 - level) / 2])
+
+    intervals = list(batched(np.quantile(bootstrap_statistic, quantiles), 2))
+
+    # Return confidence intervals and bootstrap statistics
+    confidence_intervals = dict(zip(levels, intervals))
+    return confidence_intervals, np.array(bootstrap_statistic)
 
 
 def iqr(x):

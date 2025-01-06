@@ -16,13 +16,23 @@ import warnings
 from functools import lru_cache
 from unittest.mock import MagicMock, patch
 
+import joblib
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 from sklearn.metrics import mean_squared_error
+from statsmodels.stats.weightstats import zconfint
 
 import extrastats as es
+
+
+@lru_cache
+def load_data(dataset):
+    with lzma.open(f"{dataset}.json.xz") as fp:
+        census_encoded = fp.read()
+
+    return json.loads(census_encoded.decode("utf-8"))
 
 
 class TestPermutationTest(unittest.TestCase):
@@ -1481,12 +1491,337 @@ class TestMutualInfo(unittest.TestCase):
         self.assertAlmostEqual(mi, 0.57, 2)
 
 
-@lru_cache
-def load_data(dataset):
-    with lzma.open(f"{dataset}.json.xz") as fp:
-        census_encoded = fp.read()
+class TestConfidenceInterval(unittest.TestCase):
+    """Test cases for extrastats.confidence_interval"""
 
-    return json.loads(census_encoded.decode("utf-8"))
+    def setUp(self):
+        self.rng = np.random.default_rng(0)
+
+    def assert_confidence_intervals(self, confidence_intervals, expected_intervals, precision=0.1):
+        """
+        Assert that 'confidence_intervals' agree with 'expected_intervals' within
+        a range indicated by 'precision'.
+
+        """
+
+        for level, (expected_lower, expected_upper) in expected_intervals.items():
+            self.assertLessEqual(abs(expected_lower - confidence_intervals[level][0]), precision)
+            self.assertLessEqual(abs(expected_upper - confidence_intervals[level][1]), precision)
+
+    def mean_test(self, n, precision=0.1, levels=None, **kwargs):
+        """
+        Test confidence_interval with the arithmetic mean and a random
+        sample from a standard normal distribution, with the sample size
+        (n) specified by individual test cases.
+
+        """
+
+        sample = self.rng.normal(0, 1, n)
+        if levels:
+            kwargs["levels"] = levels
+
+        else:
+            levels = 0.9, 0.95, 0.99
+
+        confidence_intervals, bootstrap_data = es.confidence_interval(
+            np.mean, sample, random_state=self.rng, **kwargs
+        )
+
+        self.assertEqual(len(confidence_intervals), len(levels))
+        mean = np.mean(sample)
+        std_err = sp.stats.sem(sample)
+        expected_intervals = {}
+        for level in levels:
+            # Compute margin of error
+            h = std_err * sp.stats.t.ppf((1 + level) / 2, n - 1)
+            lower_bound = mean - h
+            upper_bound = mean + h
+            expected_intervals[level] = lower_bound, upper_bound
+
+        self.assert_confidence_intervals(confidence_intervals, expected_intervals, precision)
+        return confidence_intervals, bootstrap_data
+
+    @unittest.expectedFailure
+    def test_mean_with_small_n(self):
+        """
+        Test mean statistic with n = 20.
+
+        Currently, this is expected to fail because the implementation wasn't
+        designed for small sizes with high confidence levels.
+
+        """
+
+        n = 20
+        self.mean_test(n)
+
+    def test_mean_with_moderate_n(self):
+        """
+        Test mean statistic with n = 50.
+
+        """
+
+        n = 50
+        self.mean_test(n)
+
+    def test_mean_with_large_n(self):
+        """
+        Test mean statistic with n = 500.
+
+        """
+
+        n = 500
+        self.mean_test(n, precision=2)
+
+    def test_mean_difference_with_moderate_n(self):
+        """
+        Test group mean difference statistic with n = 50.
+
+        """
+
+        n = 50
+        a = self.rng.normal(0, 1, n)
+        b = self.rng.normal(1, 1, n)
+
+        def mean_diff(a, b):
+            return np.mean(a) - np.mean(b)
+
+        confidence_intervals, _ = es.confidence_interval(mean_diff, a, b, random_state=self.rng)
+        confidence_levels = 0.9, 0.95, 0.99
+        expected_intervals = {}
+        for level in confidence_levels:
+            lower, upper = zconfint(a, b, alpha=1 - level)
+            expected_intervals[level] = lower, upper
+
+        self.assert_confidence_intervals(confidence_intervals, expected_intervals)
+
+    def test_mean_difference_of_three_groups(self):
+        """
+        Test mean difference of three groups.
+        """
+
+        n = 50
+        a = self.rng.normal(0, 1, n)
+        b = self.rng.normal(0, 1, n)
+        c = self.rng.normal(1, 1, n)
+
+        def grand_mean_diff(a, b, c):
+            groups = np.array([a, b, c])
+            grand_mean = np.mean(groups)
+            return np.mean(c) - grand_mean
+
+        confidence_intervals, _ = es.confidence_interval(
+            grand_mean_diff,
+            a,
+            b,
+            c,
+            random_state=self.rng,
+        )
+
+        # Compute grand mean and standard error for group c
+        groups = np.array([a, b, c])
+        grand_mean = np.mean(groups)
+        c_mean_diff = np.mean(c) - grand_mean
+        c_std_err = sp.stats.sem(c)
+
+        # Correct degrees of freedom
+        df = 3 * n - 3
+
+        confidence_levels = 0.9, 0.95, 0.99
+        expected_intervals = {}
+        for level in confidence_levels:
+            alpha = 1 - level
+            t_crit = sp.stats.t.ppf(1 - alpha / 2, df)
+            lower = c_mean_diff - t_crit * c_std_err
+            upper = c_mean_diff + t_crit * c_std_err
+            expected_intervals[level] = lower, upper
+
+        self.assert_confidence_intervals(confidence_intervals, expected_intervals)
+
+    def test_default_iterations(self):
+        """
+        Test with default number of iterations.
+
+        """
+
+        n = 50
+        default_iterations = 2000
+        _, bootstrap_data = self.mean_test(n)
+        self.assertEqual(len(bootstrap_data), default_iterations)
+        self.assertEqual(bootstrap_data.dtype, np.float64)
+
+    def test_non_default_iterations(self):
+        """
+        Test with non-default number of iterations.
+
+        """
+
+        n = 50
+        iterations = 3000
+        _, bootstrap_data = self.mean_test(n, iterations=iterations)
+        self.assertEqual(len(bootstrap_data), iterations)
+        self.assertEqual(bootstrap_data.dtype, np.float64)
+
+    def test_non_default_levels(self):
+        """
+        Test with non-default confidence levels.
+
+        """
+
+        n = 50
+        confidence_levels = (0.8,)
+        self.mean_test(n, levels=confidence_levels)
+
+    def test_non_default_n_jobs(self):
+        """
+        Test with a non-default number value for n_jobs.
+
+        """
+
+        n = 50
+        n_jobs = 2
+        self.mean_test(n, n_jobs=n_jobs)
+
+    def test_non_default_parallel(self):
+        """
+        Test with a non-default value for parallel.
+
+        """
+
+        n = 50
+        parallel = joblib.Parallel()
+        self.mean_test(n, parallel=parallel)
+
+    def test_default_random_state(self):
+        """
+        Test with the default value for random_state.
+
+        """
+
+        n = 500
+        a = self.rng.normal(0, 1, n)
+        b = self.rng.normal(1, 1, n)
+
+        def mean_diff(a, b):
+            return np.mean(a) - np.mean(b)
+
+        confidence_intervals, _ = es.confidence_interval(mean_diff, a, b)
+        confidence_levels = (0.9, 0.95)
+        expected_intervals = {}
+        for level in confidence_levels:
+            expected_intervals[level] = zconfint(a, b, alpha=1 - level)
+
+        self.assert_confidence_intervals(confidence_intervals, expected_intervals)
+
+    def test_random_state_integer(self):
+        """
+        Test with an integer value for random_state.
+
+        """
+
+        n = 50
+        a = self.rng.normal(0, 1, n)
+        b = self.rng.normal(1, 1, n)
+
+        def mean_diff(a, b):
+            return np.mean(a) - np.mean(b)
+
+        confidence_intervals, _ = es.confidence_interval(mean_diff, a, b, random_state=0)
+        confidence_levels = (0.9, 0.95, 0.99)
+        expected_intervals = {}
+        for level in confidence_levels:
+            expected_intervals[level] = zconfint(a, b, alpha=1 - level)
+
+        self.assert_confidence_intervals(confidence_intervals, expected_intervals)
+
+    def test_a_is_list(self):
+        """
+        Test with lists for a and args parameters.
+
+        """
+
+        n = 50
+        a = list(self.rng.normal(0, 1, n))
+        b = list(self.rng.normal(1, 1, n))
+
+        def mean_diff(a, b):
+            return np.mean(a) - np.mean(b)
+
+        confidence_intervals, _ = es.confidence_interval(mean_diff, a, b, random_state=self.rng)
+        confidence_levels = (0.9, 0.95, 0.99)
+        expected_intervals = {}
+        for level in confidence_levels:
+            expected_intervals[level] = zconfint(a, b, alpha=1 - level)
+
+        self.assert_confidence_intervals(confidence_intervals, expected_intervals)
+
+    def test_random_state_raises_value_error(self):
+        """
+        Test that an unexpected value for random_state raises a ValueError.
+
+        """
+
+        n = 50
+        sample = self.rng.normal(0, 1, n)
+        with self.assertRaises(ValueError):
+            es.confidence_interval(np.mean, sample, random_state="duck")
+
+    def test_warns_on_unequal_sample_sizes(self):
+        """
+        Test that a warning is raised when groups are different sizes.
+
+        """
+
+        a = self.rng.normal(0, 1, 20)
+        b = self.rng.normal(0, 1, 20)
+        c = self.rng.normal(0, 1, 30)
+
+        with self.assertWarns(UserWarning):
+            es.confidence_interval(lambda *_: 0, a, b, c)
+
+    def test_with_n_eq_0(self):
+        """
+        Test that a ValueError is raised when n=0.
+
+        """
+
+        with self.assertRaises(ValueError):
+            es.confidence_interval(lambda _: 0, [])
+
+    def test_with_n_eq_1(self):
+        """
+        Test that a ValueError is raised when n=1.
+
+        """
+
+        with self.assertRaises(ValueError):
+            es.confidence_interval(lambda _: 0, [0])
+
+    def test_iterations_lt_1(self):
+        """
+        Test that a ValueError is raised when iterations < 1.
+
+        """
+
+        with self.assertRaises(ValueError):
+            es.confidence_interval(lambda _: 0, [], iterations=0)
+
+    def test_zero_levels(self):
+        """
+        Test that a ValueError is raised when there are no confidence levels.
+
+        """
+
+        with self.assertRaises(ValueError):
+            es.confidence_interval(lambda _: 0, [], levels=tuple())
+
+    def test_invalid_levels(self):
+        """
+        Test that a ValueError is raised on invalid confidence levels.
+
+        """
+
+        with self.assertRaises(ValueError):
+            es.confidence_interval(lambda _: 0, [], levels=(0.9, -5))
 
 
 if __name__ == "__main__":
