@@ -430,7 +430,7 @@ def confidence_interval(
     f: Callable[..., float],
     a: Union[np.ndarray, List[float]],
     *args: Union[np.ndarray, List[float]],
-    iterations: int = 1000,
+    iterations: int = 2000,
     levels: Tuple[float, ...] = (0.9, 0.95, 0.99),
     n_jobs: int = 1,
     parallel: Optional[Parallel] = None,
@@ -444,7 +444,9 @@ def confidence_interval(
                       the groups `a` and `*args` as arguments.
         a (array-like): The first group of data.
         *args: Additional groups of data.
-        iterations (int): Number of bootstrap iterations. Default is 1000.
+        iterations (int): Number of bootstrap iterations. Default is 2000.
+                          Increase for higher precision, especially for extreme
+                          confidence levels.
         levels (tuple): Confidence levels to compute (e.g., (0.9, 0.95, 0.99)).
         n_jobs (int): Number of parallel jobs. Default is 1 (no parallelization).
         parallel (joblib.Parallel, optional): Custom Parallel instance. If None, a new one is created.
@@ -456,17 +458,22 @@ def confidence_interval(
 
     Raises:
         ValueError: If `random_state` is of an unexpected type.
+
     """
+
     if parallel is None:
         parallel = Parallel(n_jobs=n_jobs)
 
     # Initialize random number generator
     if isinstance(random_state, (int, np.integer)):
         rng = np.random.default_rng(seed=random_state)
+
     elif isinstance(random_state, np.random.Generator):
         rng = random_state
+
     elif random_state is None:
         rng = np.random.default_rng()
+
     else:
         raise ValueError(f"Got unexpected value for random_state: {random_state}")
 
@@ -496,7 +503,8 @@ def confidence_interval(
     intervals = list(batched(np.quantile(bootstrap_statistic, quantiles), 2))
 
     # Return confidence intervals and bootstrap statistics
-    return {level: interval for level, interval in zip(levels, intervals)}, bootstrap_statistic
+    confidence_intervals = {level: interval for level, interval in zip(levels, intervals)}
+    return confidence_intervals, np.array(bootstrap_statistic)
 
 
 def iqr(x):
