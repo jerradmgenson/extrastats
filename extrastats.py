@@ -523,6 +523,94 @@ def confidence_interval(
     return confidence_intervals, np.array(bootstrap_statistic)
 
 
+@singledispatch
+def sample_size(
+    model,
+    f,
+    width,
+    level=0.95,
+    prob=0.8,
+    start=10,
+    stop=10000,
+    sample_size_iterations=2000,
+    n_jobs=1,
+    parallel=None,
+    random_state=None,
+    **kwargs,
+):
+    if parallel is None:
+        parallel = Parallel(n_jobs=n_jobs)
+
+    # Initialize random number generator
+    if isinstance(random_state, (int, np.integer)):
+        rng = np.random.default_rng(seed=random_state)
+
+    elif isinstance(random_state, np.random.Generator):
+        rng = random_state
+
+    elif random_state is None:
+        rng = np.random.default_rng()
+
+    else:
+        raise ValueError(f"Got unexpected value for random_state: {random_state}")
+
+    def sample(n, random_seed):
+        rng = np.random.default_rng(random_seed)
+        x = model(n, rng)
+        ci, _ = confidence_interval(f, *x, levels=(level,), random_state=rng, **kwargs)
+        lower, upper = ci[level]
+        width = abs(upper - lower)
+        return width
+
+    max_int64 = np.iinfo(np.int64).max
+    for n in range(start, stop):
+        sample_ = partial(sample, n)
+        widths = parallel(
+            delayed(sample_)(seed) for seed in rng.integers(max_int64, size=sample_size_iterations)
+        )
+
+        upper_width = np.quantile(widths, prob)
+        if upper_width <= width:
+            return n
+
+    raise RuntimeError("sample_size failed to converge within the target parameters.")
+
+
+@sample_size.register
+def _(
+    x: np.ndarray,
+    f,
+    width,
+    level=0.95,
+    prob=0.8,
+    start=10,
+    stop=10000,
+    sample_size_iterations=2000,
+    n_jobs=1,
+    parallel=None,
+    random_state=None,
+    **kwargs,
+):
+
+    def empirical_model(n, rng):
+        return rng.choice(x, size=n, replace=True)
+
+    return sample_size(
+        empirical_model,
+        f,
+        width,
+        level=level,
+        prob=prob,
+        start=start,
+        stop=stop,
+        sample_size_iterations=sample_size_iterations,
+        n_jobs=n_jobs,
+        parallel=parallel,
+        random_state=random_state,
+        **kwargs,
+    )
+
+
 def iqr(x):
     """
     Calculate the interquartile range of the given ndarray.
