@@ -1824,5 +1824,25 @@ class TestConfidenceInterval(unittest.TestCase):
             es.confidence_interval(lambda _: 0, [], levels=(0.9, -5))
 
 
+class TestSampleSize(unittest.TestCase):
+    """Test cases for extrastats.sample_size"""
+
+    def setUp(self):
+        self.rng = np.random.default_rng(0)
+
+    def test_sample_size_for_mean_success(self):
+        x = self.rng.normal(100, 10, 20)
+        estimated_sample_size = es.sample_size(
+            x, np.mean, 1, lower=1000, upper=1500, n_jobs=-1, random_state=self.rng
+        )
+        self.assertEqual(estimated_sample_size, 1156)
+
+    def test_sample_size_for_mean_failure(self):
+        x = self.rng.normal(100, 10, 20)
+
+        with self.assertRaises(RuntimeError):
+            es.sample_size(x, np.mean, 1, lower=50, upper=100, n_jobs=-1, random_state=self.rng)
+
+
 if __name__ == "__main__":
     unittest.main()

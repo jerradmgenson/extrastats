@@ -530,9 +530,10 @@ def sample_size(
     width,
     level=0.95,
     prob=0.8,
-    start=10,
-    stop=10000,
+    lower=10,
+    upper=10000,
     sample_size_iterations=2000,
+    tol=0.01,
     n_jobs=1,
     parallel=None,
     random_state=None,
@@ -563,17 +564,51 @@ def sample_size(
         return width
 
     max_int64 = np.iinfo(np.int64).max
-    for n in range(start, stop):
-        sample_ = partial(sample, n)
-        widths = parallel(
-            delayed(sample_)(seed) for seed in rng.integers(max_int64, size=sample_size_iterations)
+    n = (lower + upper) // 2
+    widths = parallel(
+        delayed(sample)(n, i) for i in rng.integers(max_int64, size=sample_size_iterations)
+    )
+
+    upper_width = np.quantile(widths, prob)
+    acceptable_range = (width - tol * width, width + tol * width)
+    if acceptable_range[0] <= upper_width <= acceptable_range[1]:
+        return n
+
+    if upper_width <= width:
+        return sample_size(
+            model,
+            f,
+            width,
+            level=level,
+            prob=prob,
+            lower=lower,
+            upper=n,
+            sample_size_iterations=sample_size_iterations,
+            tol=tol,
+            n_jobs=n_jobs,
+            parallel=parallel,
+            random_state=random_state,
+            **kwargs,
         )
 
-        upper_width = np.quantile(widths, prob)
-        if upper_width <= width:
-            return n
+    if upper - lower <= 2:
+        raise RuntimeError("sample_size failed to converge within the target parameters.")
 
-    raise RuntimeError("sample_size failed to converge within the target parameters.")
+    return sample_size(
+        model,
+        f,
+        width,
+        level=level,
+        prob=prob,
+        lower=n,
+        upper=upper,
+        sample_size_iterations=sample_size_iterations,
+        tol=tol,
+        n_jobs=n_jobs,
+        parallel=parallel,
+        random_state=random_state,
+        **kwargs,
+    )
 
 
 @sample_size.register
@@ -583,9 +618,10 @@ def _(
     width,
     level=0.95,
     prob=0.8,
-    start=10,
-    stop=10000,
+    lower=10,
+    upper=10000,
     sample_size_iterations=2000,
+    tol=0.01,
     n_jobs=1,
     parallel=None,
     random_state=None,
@@ -593,7 +629,7 @@ def _(
 ):
 
     def empirical_model(n, rng):
-        return rng.choice(x, size=n, replace=True)
+        return [rng.choice(x, size=n, replace=True)]
 
     return sample_size(
         empirical_model,
@@ -601,9 +637,10 @@ def _(
         width,
         level=level,
         prob=prob,
-        start=start,
-        stop=stop,
+        lower=lower,
+        upper=upper,
         sample_size_iterations=sample_size_iterations,
+        tol=tol,
         n_jobs=n_jobs,
         parallel=parallel,
         random_state=random_state,
