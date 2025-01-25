@@ -542,7 +542,7 @@ def _compute_ci_width(
 
 @singledispatch
 def sample_size(
-    model: Callable[[int, np.random.Generator], Any],
+    model: Callable[[int, np.random.Generator], Sequence[Any]],
     calculate_statistic: Callable[..., float],
     width: float,
     level: float = 0.95,
@@ -564,6 +564,8 @@ def sample_size(
         model (Callable): A function that simulates data, taking the sample size
                           (`n`) and random number generator (`rng`) as arguments,
                           and returning data to be passed to `calculate_statistic`.
+                          Note that data should be returned as a list or tuple of
+                          positional arguments to `calculate_statistic`.
         calculate_statistic (Callable): A function to compute the statistic of interest.
         width (float): Target width of the confidence interval.
         level (float): Confidence level for the interval. Must be between 0 and 1
