@@ -2,7 +2,7 @@
 extrastats is a library of high-quality statistical routines that are
 missing from the mainstream Python packages.
 
-Copyright 2022-2023 Jerrad Michael Genson
+Copyright 2022-2025 Jerrad Michael Genson
 
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import partial, reduce, singledispatch, wraps
 from itertools import batched, chain
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -521,6 +521,233 @@ def confidence_interval(
     # Return confidence intervals and bootstrap statistics
     confidence_intervals = dict(zip(levels, intervals))
     return confidence_intervals, np.array(bootstrap_statistic)
+
+
+def _compute_ci_width(
+    model: Callable[[int, np.random.Generator], Any],
+    calculate_statistic: Callable[..., float],
+    level: float,
+    kwargs: dict,
+    n: int,
+    seed: int,
+) -> float:
+    rng = np.random.default_rng(seed)
+    x = model(n, rng)
+    ci, _ = confidence_interval(
+        calculate_statistic, *x, levels=(level,), random_state=rng, **kwargs
+    )
+    lower, upper = ci[level]
+    return abs(upper - lower)
+
+
+@singledispatch
+def sample_size(
+    model: Callable[[int, np.random.Generator], Sequence[Any]],
+    calculate_statistic: Callable[..., float],
+    width: float,
+    level: float = 0.95,
+    prob: float = 0.8,
+    lower: int = 10,
+    upper: int = 10000,
+    mc_iterations: int = 2000,
+    convergence_limit: int = 100,
+    tol: float = 0.01,
+    n_jobs: int = 1,
+    parallel: Optional[Parallel] = None,
+    random_state: Optional[Union[int, np.random.Generator]] = None,
+    **kwargs: Any,
+) -> int:
+    """
+    Estimate the required sample size for a target confidence interval width.
+
+    Parameters:
+        model (Callable): A function that simulates data, taking the sample size
+                          (`n`) and random number generator (`rng`) as arguments,
+                          and returning data to be passed to `calculate_statistic`.
+                          Note that data should be returned as a list or tuple of
+                          positional arguments to `calculate_statistic`.
+        calculate_statistic (Callable): A function to compute the statistic of interest.
+        width (float): Target width of the confidence interval.
+        level (float): Confidence level for the interval. Must be between 0 and 1
+                       (exclusive). Default is 0.95.
+        prob (float): Quantile threshold for the Monte Carlo simulations. Must be
+                      between 0 and 1 (inclusive). Default is 0.8.
+        lower (int): Lower bound for the sample size. Must be >= 2. Default is 10.
+        upper (int): Upper bound for the sample size. Must be > `lower`. Default is 10,000.
+        mc_iterations (int): Number of Monte Carlo iterations per sample size. Must
+                             be >= 1. Default is 2000.
+        convergence_limit (int): Maximum iterations before stopping. Must be >= 0.
+                                 Default is 100.
+        tol (float): Tolerance for acceptable interval width. Must be >= 0. Default is 0.01.
+        n_jobs (int): Number of parallel jobs. Default is 1 (no parallelization).
+                      Use -1 for all available processors.
+        parallel (joblib.Parallel, optional): Custom `Parallel` instance for
+                                              parallelization. If None, a new instance
+                                              is created with `n_jobs`.
+        random_state (int, np.random.Generator, or None): Random seed or generator
+                                                          for reproducibility. Default is None.
+        **kwargs: Additional arguments passed to `confidence_interval`.
+
+    Returns:
+        int: The estimated sample size required to achieve the target confidence interval width.
+
+    Raises:
+        ValueError: If input parameters are invalid (e.g., out of range).
+        RuntimeError: If the algorithm fails to converge within the given parameters.
+
+    """
+
+    logger = logging.getLogger(__name__)
+    if lower < 2:
+        raise ValueError(f"Argument for 'lower' must be >= 2. Got: {lower}")
+
+    if upper <= lower:
+        raise ValueError(f"Argument for 'upper' must be > 'lower'. Got: {upper}")
+
+    if width < 0:
+        raise ValueError(f"Argument for 'width' must be >= 0. Got: {width}")
+
+    if not 0 <= prob <= 1:
+        raise ValueError(f"Argument for 'prob' must be within range [0, 1]. Got: {prob}")
+
+    if not 0 < level < 1:
+        raise ValueError(f"Argument for 'level' must be within range (0, 1). Got: {level}")
+
+    if mc_iterations < 1:
+        raise ValueError(f"Argument for 'mc_iterations' must be >= 1. Got: {mc_iterations}")
+
+    if convergence_limit < 0:
+        raise ValueError(f"Argument for 'convergence_limit' must be >= 0. Got: {convergence_limit}")
+
+    if tol < 0:
+        raise ValueError(f"Argument for 'tol' must be >= 0. Got: {tol}")
+
+    if tol * width < 1e-10:
+        raise ValueError(f"The tolerance {tol} is too small for the target width {width}.")
+
+    if n_jobs < -1:
+        raise ValueError(f"Argument for 'n_jobs' must be >= -1. Got: {n_jobs}")
+
+    if parallel is None:
+        parallel = Parallel(n_jobs=n_jobs)
+
+    # Initialize random number generator
+    if isinstance(random_state, (int, np.integer)):
+        rng = np.random.default_rng(seed=random_state)
+
+    elif isinstance(random_state, np.random.Generator):
+        rng = random_state
+
+    elif random_state is None:
+        rng = np.random.default_rng()
+
+    else:
+        raise ValueError(f"Got unexpected value for random_state: {random_state}")
+
+    max_int64 = np.iinfo(np.int64).max
+    acceptable_range = (width - tol * width, width + tol * width)
+    sample = partial(_compute_ci_width, model, calculate_statistic, level, kwargs)
+
+    while upper - lower > 2 and convergence_limit > 0:
+        convergence_limit -= 1
+        n = (lower + upper) // 2
+        seeds = rng.integers(max_int64, size=mc_iterations)
+        widths = parallel(delayed(sample)(n, seed) for seed in seeds)
+        upper_width = np.quantile(widths, prob)
+        logger.debug("n: %d - upper_width: %f", n, upper_width)
+        if acceptable_range[0] <= upper_width <= acceptable_range[1]:
+            return n
+
+        if upper_width <= width:
+            upper = n
+
+        else:
+            lower = n
+
+    raise RuntimeError(
+        f"sample_size failed to converge for width={width}, level={level}, "
+        f"tol={tol}, bounds=({lower}, {upper}), "
+        f"current_n={n}, upper_width={upper_width}, acceptable_range={acceptable_range}."
+    )
+
+
+@sample_size.register
+def _(
+    data: np.ndarray,
+    calculate_statistic: Callable[..., float],
+    width: float,
+    level: float = 0.95,
+    prob: float = 0.8,
+    lower: int = 10,
+    upper: int = 10000,
+    mc_iterations: int = 2000,
+    convergence_limit: int = 100,
+    tol: float = 0.01,
+    n_jobs: int = 1,
+    parallel: Optional[Parallel] = None,
+    random_state: Optional[Union[int, np.random.Generator]] = None,
+    **kwargs: Any,
+) -> int:
+    """
+    Estimate the required sample size for a target confidence interval width using an empirical dataset.
+
+    Parameters:
+        data (np.ndarray): The empirical dataset to use for sampling.
+        calculate_statistic (Callable): A function to compute the statistic of interest.
+        width (float): Target width of the confidence interval.
+        level (float): Confidence level for the interval. Must be between 0 and 1
+                       (exclusive). Default is 0.95.
+        prob (float): Quantile threshold for the Monte Carlo simulations. Must be
+                      between 0 and 1 (inclusive). Default is 0.8.
+        lower (int): Lower bound for the sample size. Must be >= 2. Default is 10.
+        upper (int): Upper bound for the sample size. Must be > `lower`. Default is 10,000.
+        mc_iterations (int): Number of Monte Carlo iterations per sample size. Must
+                             be >= 1. Default is 2000.
+        convergence_limit (int): Maximum iterations before stopping. Must be >= 0.
+                                 Default is 100.
+        tol (float): Tolerance for acceptable interval width. Must be >= 0. Default is 0.01.
+        n_jobs (int): Number of parallel jobs. Default is 1 (no parallelization).
+                      Use -1 for all available processors.
+        parallel (joblib.Parallel, optional): Custom `Parallel` instance for
+                                              parallelization. If None, a new instance
+                                              is created with `n_jobs`.
+        random_state (int, np.random.Generator, or None): Random seed or generator
+                                                          for reproducibility. Default is None.
+        **kwargs: Additional arguments passed to `confidence_interval`.
+
+    Returns:
+        int: The estimated sample size required to achieve the target confidence interval width.
+
+    Raises:
+        ValueError: If input parameters are invalid (e.g., out of range).
+        RuntimeError: If the algorithm fails to converge within the given parameters.
+
+    Notes:
+        This implementation assumes the data provided is an empirical dataset from which
+        bootstrap samples will be drawn. The `model` in this case is replaced with a
+        function that samples data points with replacement from the empirical dataset.
+
+    """
+
+    def empirical_model(n, rng):
+        return [rng.choice(data, size=n, replace=True)]
+
+    return sample_size(
+        empirical_model,
+        calculate_statistic,
+        width,
+        level=level,
+        prob=prob,
+        lower=lower,
+        upper=upper,
+        mc_iterations=mc_iterations,
+        convergence_limit=convergence_limit,
+        tol=tol,
+        n_jobs=n_jobs,
+        parallel=parallel,
+        random_state=random_state,
+        **kwargs,
+    )
 
 
 def iqr(x):

@@ -1824,5 +1824,133 @@ class TestConfidenceInterval(unittest.TestCase):
             es.confidence_interval(lambda _: 0, [], levels=(0.9, -5))
 
 
+class TestSampleSize(unittest.TestCase):
+    """Test cases for extrastats.sample_size"""
+
+    def setUp(self):
+        self.rng = np.random.default_rng(0)
+        self.dummy_model = lambda n, rng: rng.normal(size=n)
+        self.dummy_statistic = np.mean
+
+    def test_sample_size_success(self):
+        estimated_sample_size = es.sample_size(
+            lambda n, rng: [rng.normal(100, 10, n)],
+            np.mean,
+            1,
+            lower=1000,
+            upper=2000,
+            iterations=2000,
+            mc_iterations=500,
+            n_jobs=-1,
+            random_state=self.rng,
+        )
+
+        self.assertTrue(1500 <= estimated_sample_size <= 1700)
+
+    def test_empirical_model_success(self):
+        x = self.rng.normal(100, 10, 20)
+        estimated_sample_size = es.sample_size(
+            x,
+            np.mean,
+            1,
+            lower=1000,
+            upper=1500,
+            iterations=2000,
+            mc_iterations=500,
+            n_jobs=-1,
+            random_state=self.rng,
+        )
+
+        self.assertTrue(1100 <= estimated_sample_size <= 1200)
+
+    def test_sample_size_for_mean_failure(self):
+        x = self.rng.normal(100, 10, 20)
+
+        with self.assertRaises(RuntimeError):
+            es.sample_size(
+                x,
+                np.mean,
+                1,
+                lower=50,
+                upper=100,
+                iterations=500,
+                mc_iterations=500,
+                n_jobs=-1,
+                random_state=self.rng,
+            )
+
+    def test_lower_bound_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, lower=1)
+
+        self.assertIn("Argument for 'lower' must be >= 2", str(context.exception))
+
+    def test_upper_bound_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, lower=10, upper=5)
+
+        self.assertIn("Argument for 'upper' must be > 'lower'", str(context.exception))
+
+    def test_width_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=-0.5)
+
+        self.assertIn("Argument for 'width' must be >= 0", str(context.exception))
+
+    def test_prob_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, prob=1.1)
+
+        self.assertIn("Argument for 'prob' must be within range [0, 1]", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, prob=-0.1)
+
+        self.assertIn("Argument for 'prob' must be within range [0, 1]", str(context.exception))
+
+    def test_level_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, level=1.1)
+
+        self.assertIn("Argument for 'level' must be within range (0, 1)", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, level=0.0)
+
+        self.assertIn("Argument for 'level' must be within range (0, 1)", str(context.exception))
+
+    def test_mc_iterations_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, mc_iterations=0)
+
+        self.assertIn("Argument for 'mc_iterations' must be >= 1", str(context.exception))
+
+    def test_convergence_limit_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, convergence_limit=-1)
+
+        self.assertIn("Argument for 'convergence_limit' must be >= 0", str(context.exception))
+
+    def test_tol_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, tol=-0.1)
+
+        self.assertIn("Argument for 'tol' must be >= 0", str(context.exception))
+
+    def test_n_jobs_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(self.dummy_model, self.dummy_statistic, width=0.5, n_jobs=-2)
+
+        self.assertIn("Argument for 'n_jobs' must be >= -1", str(context.exception))
+
+    def test_random_state_validation(self):
+        with self.assertRaises(ValueError) as context:
+            es.sample_size(
+                self.dummy_model, self.dummy_statistic, width=0.5, random_state="invalid"
+            )
+
+        self.assertIn("Got unexpected value for random_state", str(context.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
