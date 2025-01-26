@@ -30,10 +30,6 @@ from statsmodels.stats.stattools import medcouple
 DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
 
-DistSide = Enum("DistSide", "left right both")
-Alternative = Enum("Alternative", "greater less two_sided")
-PermutationType = Enum("PermutationType", "independent samples pairings bootstrap")
-
 TestResult = namedtuple("TestResult", "statistic pvalue")
 
 
@@ -190,8 +186,8 @@ def permutation_test(
     f,
     a,
     *args,
-    alternative=Alternative.two_sided,
-    permutation_type=PermutationType.bootstrap,
+    alternative="two-sided",
+    permutation_type="bootstrap",
     less_is_more=False,
     iterations=1000,
     batch=False,
@@ -212,20 +208,21 @@ def permutation_test(
       a: An ndarray representing the first dataset under study.
       *args: ndarrays representing subsequent datasets in the study.
       alternative: Whether the test is one-sided (greater), one-sided
-                   (lesser), or two-sided. Should be a member of
-                   'Alternative'. If batch=True and 'f' returns a scalar,
-                   or a single ndarray is supplied,  this argument is
-                   ignored as the test is always one-sided in this
-                   configuration.
-      permutation_type: A member of 'PermutationType'. The various
-                        options are:
-                        - pairings: the order of observations is randomized,
+                   (lesser), or two-sided. If batch=True and 'f'
+                   returns a scalar, or a single ndarray is supplied,
+                   this argument is ignored as the test is always one-sided
+                   in this configuration. Options:
+                   - "greater"
+                   - "lesser"
+                   - "two-sided"
+      permutation_type: The type of resampling procedure to use. Options are:
+                        - "pairings": the order of observations is randomized,
                           but the sample that they belong to is preserved.
-                        - samples: the sample that an observation belongs to
+                        - "samples": the sample that an observation belongs to
                           is randomized, but the ordering is preserved.
-                        - independent: both the sample that an observation
+                        - "independent": both the sample that an observation
                           belongs to and the ordering is randomized.
-                        - bootstrap: combines observations from all samples
+                        - "bootstrap": combines observations from all samples
                           and then resamples with replacement.
       less_is_more: True if smaller results should be considered more extreme
                     than larger results.
@@ -250,10 +247,10 @@ def permutation_test(
     if parallel is None:
         parallel = Parallel(n_jobs=n_jobs)
 
-    if permutation_type == PermutationType.independent:
+    if permutation_type == "independent":
         calc_permutation = partial(_ind_permutation, f, batch=batch)
 
-    elif permutation_type == PermutationType.samples:
+    elif permutation_type == "samples":
         arg0_len = len(args[0])
         for arg in args:
             if len(arg) != arg0_len:
@@ -261,10 +258,10 @@ def permutation_test(
 
         calc_permutation = partial(_samples_permutation, f, batch=batch)
 
-    elif permutation_type == PermutationType.pairings:
+    elif permutation_type == "pairings":
         calc_permutation = partial(_pairings_permutation, f, batch=batch)
 
-    elif permutation_type == PermutationType.bootstrap:
+    elif permutation_type == "bootstrap":
         calc_permutation = partial(_bootstrap_permutation, f, batch=batch)
 
     else:
@@ -297,17 +294,17 @@ def permutation_test(
         sample_delta = sample_statistic
         permutation_deltas = permutation_statistics
 
-    elif len(args) > 2 or alternative == Alternative.two_sided:
+    elif len(args) > 2 or alternative == "two-sided":
         sample_delta = np.max(sample_statistic) - np.min(sample_statistic)
         permutation_deltas = np.max(permutation_statistics, axis=1) - np.min(
             permutation_statistics, axis=1
         )
 
-    elif alternative == Alternative.greater:
+    elif alternative == "greater":
         sample_delta = sample_statistic[0] - sample_statistic[1]
         permutation_deltas = permutation_statistics[:, 0] - permutation_statistics[:, 1]
 
-    elif alternative == Alternative.less:
+    elif alternative == "lesser":
         sample_delta = sample_statistic[1] - sample_statistic[0]
         permutation_deltas = permutation_statistics[:, 1] - permutation_statistics[:, 0]
 
@@ -718,15 +715,17 @@ def _(
     )
 
 
-def tail_weight(x, side=DistSide.both):
+def tail_weight(x, side="both"):
     """
     Estimate the tail weight of a dataset using the L/RMC method.
 
     Args:
       x: A 1-dimensional ndarray with dtype 'float64'.
       side: Whether to calculate the tail weight for the left or right
-            side of the distribution or both. Should be a member of
-            'DistSide'.
+            side of the distribution or both. Options:
+            - "left"
+            - "right"
+            - "both"
 
     Return:
       A floating-point number between -1 and 1 indicating whether the
@@ -736,7 +735,7 @@ def tail_weight(x, side=DistSide.both):
 
     x = np.sort(x, kind="mergesort")
     midpoint = int(len(x) / 2)
-    if side == DistSide.left:
+    if side == "left":
         x_left = x[:midpoint]
         lmc = medcouple(x_left) * -1
         return lmc
@@ -748,10 +747,10 @@ def tail_weight(x, side=DistSide.both):
         x_right = x[midpoint + 1 :]
 
     rmc = medcouple(x_right)
-    if side == DistSide.right:
+    if side == "right":
         return rmc
 
-    if side == DistSide.both:
+    if side == "both":
         x_left = x[:midpoint]
         lmc = medcouple(x_left) * -1
         return (lmc + rmc) / 2
@@ -886,7 +885,7 @@ MINorm = Enum("MINorm", ("min_info", "max_info", "avg_info", "none"))
 
 
 def mutual_info(
-    x: ArrayLike, y: ArrayLike, base: Union[int, float] = 2, norm: MINorm = MINorm.min_info
+    x: ArrayLike, y: ArrayLike, base: Union[int, float] = 2, norm: str = "min"
 ) -> float:
     """
     Calculate the mutual information between two discrete variables.
@@ -899,11 +898,11 @@ def mutual_info(
       x: A list or NumPy array of samples from the first random variable.
       y: A list or NumPy array of samples from the second random variable. Must be the same length as x.
       base: The logarithmic base to use when calculating the mutual information. Default is 2 (binary log).
-      norm: An enum indicating the type of normalization to apply to the mutual information. Options are:
-            - MINorm.min_info: Normalize by the minimum entropy of the two variables (Default).
-            - MINorm.max_info: Normalize by the maximum entropy of the two variables.
-            - MINorm.avg_info: Normalize by the average entropy of the two variables.
-            - MINorm.none: No normalization.
+      norm: A string indicating the type of normalization to apply to the mutual information. Options:
+            - "min": Normalize by the minimum entropy of the two variables (Default).
+            - "max": Normalize by the maximum entropy of the two variables.
+            - "avg": Normalize by the average entropy of the two variables.
+            - "none": No normalization.
 
     Returns:
       float: The calculated mutual information. If normalization is applied, the mutual information
@@ -920,10 +919,13 @@ def mutual_info(
     if len(x) != len(y):
         raise ValueError("Arrays 'x' and 'y' must be the same length.")
 
+    if norm not in ("min", "max", "avg", "none"):
+        raise ValueError(
+            f"Argument for 'norm' must be one of 'min', 'max', 'avg', or 'none'. Got: {norm}"
+        )
+
     x = np.array(x)
     y = np.array(y)
-    norm = MINorm(norm)
-
     mutual_information = 0
     x_labels = np.unique(x)
     y_labels = np.unique(y)
@@ -935,19 +937,19 @@ def mutual_info(
             if pxy != 0:
                 mutual_information += pxy * (np.log2(pxy / (pxi * pyi)) / np.log2(base))
 
-    if norm != MINorm.none:
+    if norm != "none":
         x_entropy = stats.entropy(px, base=base)
         y_entropy = stats.entropy(py, base=base)
         if x_entropy == 0 and y_entropy == 0:
             return 0.0
 
-        elif norm == MINorm.avg_info:
+        elif norm == "avg":
             normalization_factor = (x_entropy + y_entropy) / 2
 
         elif x_entropy == 0 or y_entropy == 0:
             return 0.0
 
-        elif norm == MINorm.min_info:
+        elif norm == "min":
             normalization_factor = min(x_entropy, y_entropy)
 
         else:
