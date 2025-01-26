@@ -13,19 +13,22 @@ import json
 import lzma
 import unittest
 from functools import lru_cache
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import joblib
 import numpy as np
 import scipy as sp
-from sklearn.metrics import mean_squared_error
 from statsmodels.stats.weightstats import zconfint
 
 import extrastats as es
 
+TEST_DATA = Path("tests/data")
+
 
 @lru_cache
 def load_data(dataset):
+    dataset = TEST_DATA / dataset
     with lzma.open(f"{dataset}.json.xz") as fp:
         census_encoded = fp.read()
 
@@ -598,7 +601,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(101)
         a = np.arange(100) * 5 + 7
         test_result = es.permutation_test(
-            lambda x, y: -1 * mean_squared_error(x, y),
+            lambda x, y: -1 * np.mean((x - y)**2),
             a,
             a,
             permutation_type="pairings",
