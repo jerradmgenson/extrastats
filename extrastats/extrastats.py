@@ -12,7 +12,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import logging
 import math
-import numbers
 import warnings
 from collections import namedtuple
 from enum import Enum
@@ -21,7 +20,6 @@ from itertools import batched, chain
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import pandas as pd
 from joblib import Parallel, delayed
 from numpy.typing import ArrayLike
 from scipy import stats
@@ -40,7 +38,6 @@ class MedcoupleError(Exception):
     """
 
 
-@singledispatch
 def adjusted_boxplot(
     x,
     k=DEFAULT_THRESHOLD,
@@ -127,59 +124,6 @@ def adjusted_boxplot(
 
     except TypeError:
         return apply_threshold(k)
-
-
-@adjusted_boxplot.register
-def _(
-    df: pd.DataFrame,
-    k=DEFAULT_THRESHOLD,
-    frac=1,
-    n_jobs=1,
-    parallel=None,
-    random_state=None,
-):
-    """
-    An adjusted_boxplot variant that takes a pandas dataframe and return
-    a nested list of boolean values indicating which values in each
-    column are outliers.
-
-    Args:
-      df: A pandas dataframe.
-      k: Factor for calculating outlier thresholds.
-         Default value is 1.5.
-      frac: Fraction of the data to use for calculating the medcouple.
-            When set to 1, the entire array is used.
-      sparse: Currently not implemented for this variant of
-              'adjusted_boxplot'.
-      n_jobs: Number of workers to use. -1 indicates to use all available
-              CPUs. If 'parallel' is not None, this parameter is ignored.
-      parallel: An instance of joblib.Parallel.
-      random_state: Either an integer >= 0 or an instance of
-                    numpy.random.Generator. Used to attain reproducible
-                    behavior when frac < 1.
-
-    Returns:
-      A tuple of (low, high) outlier thresholds. If 'k' is a sequence,
-      a generator of tuples is returned instead.
-
-    """
-
-    if parallel is None:
-        parallel = Parallel(n_jobs=n_jobs)
-
-    aboxplt = partial(adjusted_boxplot, k=k, frac=frac, random_state=random_state)
-
-    jobs = (df[col].to_numpy(dtype=float) for col in df)
-    outliers = parallel(delayed(aboxplt)(job) for job in jobs)
-    if isinstance(k, numbers.Number):
-        return pd.DataFrame(dict(zip(df.columns, outliers)))
-
-    dfs = dict()
-    for i, t in enumerate(k):
-        data = (o[i] for o in outliers)
-        dfs[t] = pd.DataFrame(dict(zip(df.columns, data)))
-
-    return dfs
 
 
 def permutation_test(
