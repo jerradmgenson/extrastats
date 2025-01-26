@@ -1,14 +1,29 @@
 """
-extrastats is a library of high-quality statistical routines that are
-missing from the mainstream Python packages.
+extrastats: A library of high-quality statistical routines for Python
+
+extrastats provides advanced statistical tools and routines that fill gaps in mainstream Python packages like NumPy, SciPy, and statsmodels. These tools are optimized for accuracy, flexibility, and performance, with support for parallel computation.
+
+Features include:
+- Adjusted boxplot methods for robust outlier detection.
+- Permutation tests with advanced resampling strategies.
+- Confidence interval estimation via bootstrapping.
+- Sample size estimation for target confidence interval widths.
+- Tail weight analysis using L/RMC methods.
+- Mutual information computation with optional normalization.
+- Harmonic variability, geometric coefficient of variation, and more.
+
+Key Benefits:
+- Integration with popular Python libraries (e.g., NumPy, SciPy).
+- Parallel execution support using `joblib`.
+- Customizable randomization and resampling techniques.
+- Extensive error handling and input validation.
 
 Copyright 2022-2025 Jerrad Michael Genson
 
-This Source Code Form is subject to the terms of the Mozilla Public
-License, v. 2.0. If a copy of the MPL was not distributed with this
-file, You can obtain one at https://mozilla.org/MPL/2.0/.
+This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, you can obtain one at https://mozilla.org/MPL/2.0/.
 
 """
+
 
 import logging
 import math
