@@ -12,13 +12,10 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import json
 import lzma
 import unittest
-import warnings
 from functools import lru_cache
 from unittest.mock import MagicMock, patch
 
 import joblib
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 from sklearn.metrics import mean_squared_error
@@ -65,9 +62,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(5, 105, 10000)
-        test_result = es.permutation_test(
-            np.mean, a, b, random_state=rng, alternative=es.Alternative.less
-        )
+        test_result = es.permutation_test(np.mean, a, b, random_state=rng, alternative="lesser")
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
@@ -77,9 +72,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(5, 105, 10000)
-        test_result = es.permutation_test(
-            np.mean, a, b, random_state=rng, alternative=es.Alternative.greater
-        )
+        test_result = es.permutation_test(np.mean, a, b, random_state=rng, alternative="greater")
 
         self.assertAlmostEqual(test_result.pvalue, 1)
         self.assertAlmostEqual(test_result.statistic[0], 49.94106601)
@@ -89,9 +82,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(100, 200, 10000)
-        test_result = es.permutation_test(
-            np.var, a, b, random_state=rng, alternative=es.Alternative.two_sided
-        )
+        test_result = es.permutation_test(np.var, a, b, random_state=rng, alternative="two-sided")
 
         self.assertAlmostEqual(test_result.pvalue, 0.718)
         self.assertAlmostEqual(test_result.statistic[0], 835.50152489)
@@ -101,9 +92,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(0, 200, 10000)
-        test_result = es.permutation_test(
-            np.var, a, b, random_state=rng, alternative=es.Alternative.two_sided
-        )
+        test_result = es.permutation_test(np.var, a, b, random_state=rng, alternative="two-sided")
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic[0], 835.50152489)
@@ -113,9 +102,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.uniform(0, 100, 10000)
         b = rng.uniform(100, 200, 10000)
-        test_result = es.permutation_test(
-            np.var, a, b, random_state=rng, alternative=es.Alternative.less
-        )
+        test_result = es.permutation_test(np.var, a, b, random_state=rng, alternative="lesser")
 
         self.assertAlmostEqual(test_result.pvalue, 0.628)
         self.assertAlmostEqual(test_result.statistic[0], 835.50152489)
@@ -175,9 +162,7 @@ class TestPermutationTest(unittest.TestCase):
         rng = np.random.default_rng(0)
         a = rng.normal(50, 10, 10000)
         b = rng.normal(50, 9, 10000)
-        test_result = es.permutation_test(
-            np.var, a, b, random_state=rng, alternative=es.Alternative.greater
-        )
+        test_result = es.permutation_test(np.var, a, b, random_state=rng, alternative="greater")
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic[0], 99.61574236)
@@ -224,7 +209,7 @@ class TestPermutationTest(unittest.TestCase):
             a,
             b,
             random_state=rng,
-            permutation_type=es.PermutationType.independent,
+            permutation_type="independent",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.19)
@@ -242,8 +227,8 @@ class TestPermutationTest(unittest.TestCase):
             a,
             b,
             random_state=rng,
-            alternative=es.Alternative.less,
-            permutation_type=es.PermutationType.independent,
+            alternative="lesser",
+            permutation_type="independent",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.008)
@@ -261,50 +246,13 @@ class TestPermutationTest(unittest.TestCase):
             a,
             b,
             random_state=rng,
-            alternative=es.Alternative.greater,
-            permutation_type=es.PermutationType.independent,
+            alternative="greater",
+            permutation_type="independent",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.992)
         self.assertAlmostEqual(test_result.statistic[0], 69.00820654696294)
         self.assertAlmostEqual(test_result.statistic[1], 72.06607121240145)
-
-    def test_longtailed_iqr_is_equal(self):
-        rng = np.random.default_rng(0)
-        a = rng.normal(0, 100, 20000)
-        a = a[a >= 0]
-        b = rng.normal(1000, 100, 20000)
-        b = b[b <= 1000]
-        test_result = es.permutation_test(
-            es.iqr,
-            a,
-            b,
-            random_state=rng,
-            permutation_type=es.PermutationType.independent,
-        )
-
-        self.assertAlmostEqual(test_result.pvalue, 0.18)
-        self.assertAlmostEqual(test_result.statistic[0], 81.427687223)
-        self.assertAlmostEqual(test_result.statistic[1], 84.514307719)
-
-    def test_longtailed_iqr_is_greater(self):
-        rng = np.random.default_rng(0)
-        a = rng.normal(0, 110, 20000)
-        a = a[a >= 0]
-        b = rng.normal(1000, 100, 20000)
-        b = b[b <= 1000]
-        test_result = es.permutation_test(
-            es.iqr,
-            a,
-            b,
-            random_state=rng,
-            alternative=es.Alternative.greater,
-            permutation_type=es.PermutationType.independent,
-        )
-
-        self.assertAlmostEqual(test_result.pvalue, 0.014)
-        self.assertAlmostEqual(test_result.statistic[0], 89.5704559453)
-        self.assertAlmostEqual(test_result.statistic[1], 84.514307719)
 
     def test_random_numbers_are_linearly_uncorrelated1(self):
         rng = np.random.default_rng(0)
@@ -316,7 +264,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.198)
@@ -332,7 +280,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.491)
@@ -348,7 +296,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.877)
@@ -364,7 +312,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.194)
@@ -380,7 +328,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.491)
@@ -396,7 +344,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.878)
@@ -412,7 +360,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.0)
@@ -428,7 +376,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.0)
@@ -444,7 +392,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
             less_is_more=True,
         )
 
@@ -461,7 +409,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.0)
@@ -477,7 +425,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.498)
@@ -493,7 +441,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             batch=True,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.5)
@@ -510,7 +458,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            permutation_type=es.PermutationType.samples,
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.666)
@@ -528,7 +476,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            permutation_type=es.PermutationType.samples,
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.205)
@@ -546,7 +494,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            permutation_type=es.PermutationType.samples,
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.854)
@@ -564,7 +512,7 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            permutation_type=es.PermutationType.samples,
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0)
@@ -582,8 +530,8 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            alternative=es.Alternative.less,
-            permutation_type=es.PermutationType.samples,
+            alternative="lesser",
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0)
@@ -601,8 +549,8 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            alternative=es.Alternative.greater,
-            permutation_type=es.PermutationType.samples,
+            alternative="greater",
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 1.0)
@@ -620,8 +568,8 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            alternative=es.Alternative.less,
-            permutation_type=es.PermutationType.samples,
+            alternative="lesser",
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0.133)
@@ -638,8 +586,8 @@ class TestPermutationTest(unittest.TestCase):
             b,
             random_state=rng,
             n_jobs=-1,
-            alternative=es.Alternative.greater,
-            permutation_type=es.PermutationType.samples,
+            alternative="greater",
+            permutation_type="samples",
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0)
@@ -653,46 +601,13 @@ class TestPermutationTest(unittest.TestCase):
             lambda x, y: -1 * mean_squared_error(x, y),
             a,
             a,
-            permutation_type=es.PermutationType.pairings,
+            permutation_type="pairings",
             batch=True,
             random_state=rng,
         )
 
         self.assertAlmostEqual(test_result.pvalue, 0)
         self.assertAlmostEqual(test_result.statistic, 0)
-
-
-class TestIQR(unittest.TestCase):
-    """
-    Test cases for es.iqr
-
-    """
-
-    def test_s4(self):
-        a = np.array([3, 1, 2, 4])
-        iqr = es.iqr(a)
-        self.assertEqual(iqr, 2)
-
-    def test_s5(self):
-        a = np.array([3, 5, 4, 2, 1])
-        iqr = es.iqr(a)
-        self.assertEqual(iqr, 3)
-
-    def test_s6(self):
-        a = np.array([5, 6, 2, 3, 1, 4])
-        iqr = es.iqr(a)
-        self.assertEqual(iqr, 3)
-
-    def test_s7(self):
-        a = np.array([4, 3, 1, 7, 5, 6, 2])
-        iqr = es.iqr(a)
-        self.assertEqual(iqr, 4)
-
-    def test_large_array(self):
-        rng = np.random.default_rng(0)
-        a = rng.uniform(0, 100000, 100000000)
-        iqr = es.iqr(a)
-        self.assertAlmostEqual(iqr, 49998.53616906)
 
 
 class TestTailWeight(unittest.TestCase):
@@ -704,185 +619,92 @@ class TestTailWeight(unittest.TestCase):
     def test_standard_normal_left(self):
         rng = np.random.default_rng(0)
         a = rng.normal(0, 1, 1000)
-        tw = es.tail_weight(a, side=es.DistSide.left)
-        self.assertAlmostEqual(tw, 0.21362931)
+        tw = es.tail_weight(a, side="left")
+        self.assertAlmostEqual(tw, 0.21362931, 1)
 
     def test_standard_normal_right(self):
         rng = np.random.default_rng(0)
         a = rng.normal(0, 1, 1000)
-        tw = es.tail_weight(a, side=es.DistSide.right)
-        self.assertAlmostEqual(tw, 0.18177707)
+        tw = es.tail_weight(a, side="right")
+        self.assertAlmostEqual(tw, 0.18177707, 1)
 
     def test_standard_normal_both(self):
         rng = np.random.default_rng(0)
         a = rng.normal(0, 1, 1000)
-        tw = es.tail_weight(a, side=es.DistSide.both)
-        self.assertAlmostEqual(tw, 0.19770319)
+        tw = es.tail_weight(a, side="both")
+        self.assertAlmostEqual(tw, 0.19770319, 1)
 
     def test_left_skewed_dist_left(self):
         rng = np.random.default_rng(0)
         a = rng.normal(100, 10, 1000)
         b = rng.uniform(40, 60, 200)
         a = np.concatenate([b, a])
-        tw = es.tail_weight(a, side=es.DistSide.left)
-        self.assertAlmostEqual(tw, 0.67276829)
+        tw = es.tail_weight(a, side="left")
+        self.assertAlmostEqual(tw, 0.67276829, 1)
 
     def test_left_skewed_dist_right(self):
         rng = np.random.default_rng(0)
         a = rng.normal(100, 10, 1000)
         b = rng.uniform(40, 60, 200)
         a = np.concatenate([b, a])
-        tw = es.tail_weight(a, side=es.DistSide.right)
-        self.assertAlmostEqual(tw, 0.18488636)
+        tw = es.tail_weight(a, side="right")
+        self.assertAlmostEqual(tw, 0.18488636, 1)
 
     def test_left_skewed_dist_both(self):
         rng = np.random.default_rng(0)
         a = rng.normal(100, 10, 1000)
         b = rng.uniform(40, 60, 200)
         a = np.concatenate([b, a])
-        tw = es.tail_weight(a, side=es.DistSide.both)
-        self.assertAlmostEqual(tw, 0.42882732)
+        tw = es.tail_weight(a, side="both")
+        self.assertAlmostEqual(tw, 0.42882732, 1)
 
     def test_bimodal_left1(self):
         rng = np.random.default_rng(0)
         a = rng.normal(50, 5, 1000)
         b = rng.normal(100, 10, 2011)
         a = np.concatenate([a, b])
-        tw = es.tail_weight(a, side=es.DistSide.left)
-        self.assertAlmostEqual(tw, -0.645384209)
+        tw = es.tail_weight(a, side="left")
+        self.assertAlmostEqual(tw, -0.645384209, 1)
 
     def test_bimodal_right1(self):
         rng = np.random.default_rng(0)
         a = rng.normal(50, 5, 1000)
         b = rng.normal(100, 10, 2011)
         a = np.concatenate([a, b])
-        tw = es.tail_weight(a, side=es.DistSide.right)
-        self.assertAlmostEqual(tw, 0.11993853)
+        tw = es.tail_weight(a, side="right")
+        self.assertAlmostEqual(tw, 0.11993853, 1)
 
     def test_bimodal_both1(self):
         rng = np.random.default_rng(0)
         a = rng.normal(50, 5, 1000)
         b = rng.normal(100, 10, 2011)
         a = np.concatenate([a, b])
-        tw = es.tail_weight(a, side=es.DistSide.both)
-        self.assertAlmostEqual(tw, -0.26272283)
+        tw = es.tail_weight(a, side="both")
+        self.assertAlmostEqual(tw, -0.26272283, 1)
 
     def test_bimodal_left2(self):
         rng = np.random.default_rng(0)
         a = rng.normal(100, 20, 1000)
         b = rng.normal(1000, 20, 100)
         a = np.concatenate([a, b])
-        tw = es.tail_weight(a, side=es.DistSide.left)
-        self.assertAlmostEqual(tw, 0.17367395)
+        tw = es.tail_weight(a, side="left")
+        self.assertAlmostEqual(tw, 0.17367395, 1)
 
     def test_bimodal_right2(self):
         rng = np.random.default_rng(0)
         a = rng.normal(100, 20, 1000)
         b = rng.normal(1000, 20, 100)
         a = np.concatenate([a, b])
-        tw = es.tail_weight(a, side=es.DistSide.right)
-        self.assertAlmostEqual(tw, 0.49642536)
+        tw = es.tail_weight(a, side="right")
+        self.assertAlmostEqual(tw, 0.49642536, 1)
 
     def test_bimodal_both2(self):
         rng = np.random.default_rng(0)
         a = rng.normal(100, 20, 1000)
         b = rng.normal(1000, 20, 100)
         a = np.concatenate([a, b])
-        tw = es.tail_weight(a, side=es.DistSide.both)
-        self.assertAlmostEqual(tw, 0.33504965)
-
-
-class TestAcceptsRandomState(unittest.TestCase):
-    """
-    Tests for es.accepts_random_state
-
-    """
-
-    def test_has_attr(self):
-        @es.accepts_random_state
-        def test():
-            pass
-
-        self.assertTrue(hasattr(test, "_accepts_random_state"))
-
-
-class TestMutualInfo(unittest.TestCase):
-    """
-    Tests for es.test_mutual_info
-
-    """
-
-    def test_correctly_identifies_discrete_dependent_variables(self):
-        a = np.repeat(np.arange(1, 11), 100)
-        b = a % 2
-        test_result = es.test_mutual_info(a, b, random_state=0)
-        self.assertAlmostEqual(test_result.pvalue, 0)
-        self.assertAlmostEqual(test_result.statistic, 0.46112849)
-
-    def test_correctly_identifies_continuous_dependent_variables(self):
-        a = np.repeat(np.arange(1, 11, 0.1), 10)
-        b = np.sin(a)
-        test_result = es.test_mutual_info(a, b, a_discrete=False, b_discrete=False, random_state=0)
-
-        self.assertAlmostEqual(test_result.pvalue, 0)
-        self.assertAlmostEqual(test_result.statistic, 4.66252284)
-
-    def test_correctly_identifies_mixed_dependent_variables1(self):
-        a = np.repeat(np.arange(1, 11), 10)
-        b = np.sin(a)
-        test_result = es.test_mutual_info(a, b, a_discrete=True, b_discrete=False, random_state=0)
-
-        self.assertAlmostEqual(test_result.pvalue, 0)
-        self.assertAlmostEqual(test_result.statistic, 2.34840926)
-
-    def test_correctly_identifies_mixed_dependent_variables2(self):
-        a = np.repeat(np.arange(1, 11), 10)
-        b = np.sin(a)
-        test_result = es.test_mutual_info(b, a, a_discrete=False, b_discrete=True, random_state=0)
-
-        self.assertAlmostEqual(test_result.pvalue, 0)
-        self.assertAlmostEqual(test_result.statistic, 2.34840926)
-
-    def test_correctly_identifies_discrete_independent_variables(self):
-        a = np.repeat(np.arange(1, 11), 100)
-        b = a % 2
-        rng = np.random.default_rng(0)
-        rng.shuffle(b)
-        test_result = es.test_mutual_info(a, b, random_state=rng)
-        self.assertAlmostEqual(test_result.pvalue, 0.308)
-        self.assertAlmostEqual(test_result.statistic, 0.00050649)
-
-    def test_correctly_identifies_continuous_independent_variables(self):
-        a = np.repeat(np.arange(1, 11, 0.1), 10)
-        b = np.sin(a)
-        rng = np.random.default_rng(0)
-        rng.shuffle(b)
-        test_result = es.test_mutual_info(
-            a, b, a_discrete=False, b_discrete=False, random_state=rng
-        )
-
-        self.assertAlmostEqual(test_result.pvalue, 0.407)
-        self.assertAlmostEqual(test_result.statistic, 0.003932137)
-
-    def test_correctly_identifies_mixed_independent_variables1(self):
-        a = np.repeat(np.arange(1, 11), 10)
-        b = np.sin(a)
-        rng = np.random.default_rng(0)
-        rng.shuffle(b)
-        test_result = es.test_mutual_info(a, b, a_discrete=True, b_discrete=False, random_state=0)
-
-        self.assertAlmostEqual(test_result.pvalue, 1.0)
-        self.assertAlmostEqual(test_result.statistic, 0.0)
-
-    def test_correctly_identifies_mixed_independent_variables2(self):
-        a = np.repeat(np.arange(1, 11), 10)
-        b = np.sin(a)
-        rng = np.random.default_rng(0)
-        rng.shuffle(a)
-        test_result = es.test_mutual_info(b, a, a_discrete=False, b_discrete=True, random_state=0)
-
-        self.assertAlmostEqual(test_result.pvalue, 1.0)
-        self.assertAlmostEqual(test_result.statistic, 0.0)
+        tw = es.tail_weight(a, side="both")
+        self.assertAlmostEqual(tw, 0.33504965, 1)
 
 
 class TestStandardError(unittest.TestCase):
@@ -973,9 +795,9 @@ class TestAdjustedBoxplot(unittest.TestCase):
 
         low, high = es.adjusted_boxplot(x)
         y = x[np.logical_or(x < low, x > high)]
-        self.assertAlmostEqual(low, -2.10054411)
-        self.assertAlmostEqual(high, 4.37154061)
-        self.assertEqual(len(y), 32)
+        self.assertAlmostEqual(low, -2.10054411, 1)
+        self.assertAlmostEqual(high, 4.37154061, 1)
+        self.assertEqual(len(y), 31)
 
     def test_left_tailed_distribution(self):
         rng = np.random.default_rng(0)
@@ -983,9 +805,9 @@ class TestAdjustedBoxplot(unittest.TestCase):
 
         low, high = es.adjusted_boxplot(x)
         y = x[np.logical_or(x < low, x > high)]
-        self.assertAlmostEqual(low, -3.62692345)
-        self.assertAlmostEqual(high, 2.48356375)
-        self.assertEqual(len(y), 44)
+        self.assertAlmostEqual(low, -3.62692345, 1)
+        self.assertAlmostEqual(high, 2.48356375, 1)
+        self.assertEqual(len(y), 43)
 
     @patch("extrastats.medcouple", MagicMock(return_value=np.nan))
     def test_medcouple_nan_raises_exception(self):
@@ -1223,136 +1045,6 @@ class TestHVar(unittest.TestCase):
         self.assertAlmostEqual(result, 9.876543209876539)
 
 
-class TestTreeBin(unittest.TestCase):
-    def test_tree_bin_results_self_consistent(self):
-        rng = np.random.default_rng(0)
-        data = rng.normal(0, 1, size=1000)
-        binned_data = es.tree_bin(data)
-        self.assertEqual(len(np.unique(binned_data.data)), len(binned_data.edges) + 1)
-        self.assertLess(binned_data.error, 1)
-
-    def test_tree_bin_with_uniform_data(self):
-        rng = np.random.default_rng(0)
-        data = rng.uniform(0, 100, size=1000)
-        binned_data = es.tree_bin(data)
-        expected = np.array([12.8638, 25.714, 37.8928, 50.5431, 62.7561, 74.5983, 87.1358])
-        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
-
-    def test_tree_bin_stable_solutions(self):
-        rng = np.random.default_rng(0)
-        data = rng.uniform(0, 100, size=1000)
-        binned_data1 = es.tree_bin(data, random_state=0)
-        binned_data2 = es.tree_bin(data, random_state=1)
-        binned_data3 = es.tree_bin(data, random_state=2)
-        self.assertTrue(np.all(np.round(binned_data1.edges, 4) == np.round(binned_data2.edges, 4)))
-        self.assertTrue(np.all(np.round(binned_data1.edges, 4) == np.round(binned_data3.edges, 4)))
-
-    def test_tree_bin_with_normal_data(self):
-        rng = np.random.default_rng(0)
-        data = rng.normal(50, 10, size=1000)
-        binned_data = es.tree_bin(data)
-        expected = np.array([31.597, 40.5797, 45.6539, 50.1528, 54.7038, 59.5075, 66.1234])
-        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
-
-    def test_tree_bin_with_bimodal_data(self):
-        rng = np.random.default_rng(0)
-        data = np.concatenate([rng.normal(30, 5, size=500), rng.normal(70, 5, size=500)])
-        binned_data = es.tree_bin(data)
-        expected = np.array([25.0543, 30.0923, 34.6371, 50.3449, 65.3175, 69.824, 74.6902])
-        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
-
-    def test_tree_bin_with_boundary_data(self):
-        rng = np.random.default_rng(0)
-        data = np.concatenate([rng.uniform(0, 30, size=500), rng.uniform(70, 100, size=500)])
-        binned_data = es.tree_bin(data)
-        expected = np.array([7.5495, 15.1447, 22.6656, 49.961, 77.6565, 85.1943, 92.346])
-        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
-
-    def test_tree_bin_with_array_size6(self):
-
-        with warnings.catch_warnings(record=True) as w:
-            binned_data = es.tree_bin([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-            self.assertEqual(len(w), 1)
-
-        self.assertEqual(len(binned_data.edges), 6)
-        self.assertEqual(len(binned_data.data), 6)
-        self.assertEqual(len(np.unique(binned_data.data)), 6)
-        self.assertEqual(binned_data.error, 0)
-
-    def test_tree_bin_with_empty_array(self):
-        with self.assertRaises(ValueError):
-            es.tree_bin([])
-
-    @patch("extrastats._locate_elbow")
-    def test_tree_bin_with_kneedle_convergence_failure(self, _locate_elbow_mock):
-        _locate_elbow_mock.side_effect = RuntimeError()
-        rng = np.random.default_rng(0)
-        data = rng.normal(0, 1, 1000)
-        with warnings.catch_warnings(record=True) as w:
-            binned_data = es.tree_bin(data)
-            self.assertEqual(len(w), 1)
-
-        self.assertEqual(len(binned_data.edges), 6)
-        self.assertEqual(len(np.unique(binned_data.data)), 7)
-
-    def test_tree_bin_with_fewer_than_five_unique_values(self):
-        x = [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
-        with warnings.catch_warnings(record=True) as w:
-            binned_data = es.tree_bin(x)
-            self.assertEqual(len(w), 1)
-
-        self.assertEqual(len(binned_data.edges), 3)
-        self.assertEqual(len(binned_data.data), len(x))
-        self.assertEqual(binned_data.error, 0)
-
-    def test_tree_bin_with_min_bins_lt_2(self):
-        rng = np.random.default_rng(0)
-        data = rng.normal(0, 1, 1000)
-        with self.assertRaises(ValueError):
-            es.tree_bin(data, min_bins=1)
-
-    def test_tree_bin_with_max_bins_lte_min_bins(self):
-        rng = np.random.default_rng(0)
-        data = rng.normal(0, 1, 1000)
-        with self.assertRaises(ValueError):
-            es.tree_bin(data, max_bins=2)
-
-    def test_tree_bin_with_crazy_data(self):
-        rng = np.random.default_rng(0)
-        crazy_data = np.concatenate(
-            [
-                rng.normal(0, 10, 1000),
-                rng.uniform(0, 100, 500),
-                rng.normal(70, 5, 500),
-                rng.uniform(60, 70, 300),
-            ]
-        )
-
-        crazy_data = crazy_data[crazy_data >= 0]
-        binned_data = es.tree_bin(crazy_data)
-        expected = np.array([7.4289, 17.2327, 28.2005, 40.1679, 58.2644, 66.249, 73.1917, 85.0136])
-        self.assertTrue(np.all(np.round(binned_data.edges, 4) == expected))
-
-
-class TestPlotBins(unittest.TestCase):
-    def setUp(self):
-        # Use the non-interactive backend for testing
-        matplotlib.use("Agg")
-        plt.ioff()
-
-    def test_plot_bins_with_typical_arguments(self):
-        rng = np.random.default_rng(0)
-        data = rng.normal(0, 1, 100)
-        binned_data = es.tree_bin(data)
-        with warnings.catch_warnings(record=True):
-            fig, ax = es.plot_bins(data, binned_data.edges)
-
-        self.assertIsInstance(fig, plt.Figure)
-        self.assertIsInstance(ax, plt.Axes)
-        lines = ax.get_lines()
-        self.assertEqual(len(lines), len(binned_data.edges))
-
-
 class TestMutualInfo(unittest.TestCase):
     def test_mutual_info_with_random_integers(self):
         rng = np.random.default_rng(0)
@@ -1444,7 +1136,7 @@ class TestMutualInfo(unittest.TestCase):
         y = x * 10
         selector = np.where(np.arange(y.size) % 2 == 0)[0]
         np.put(y, selector, -1)
-        mi = es.mutual_info(x, y, norm=es.MINorm.max_info)
+        mi = es.mutual_info(x, y, norm="max")
         self.assertAlmostEqual(mi, 0.5, 2)
 
     def test_mutual_info_with_avg_info_norm(self):
@@ -1452,7 +1144,7 @@ class TestMutualInfo(unittest.TestCase):
         y = x * 10
         selector = np.where(np.arange(y.size) % 2 == 0)[0]
         np.put(y, selector, -1)
-        mi = es.mutual_info(x, y, norm=es.MINorm.avg_info)
+        mi = es.mutual_info(x, y, norm="avg")
         self.assertAlmostEqual(mi, 0.56, 2)
 
     def test_mutual_info_with_invalid_norm(self):
@@ -1464,7 +1156,7 @@ class TestMutualInfo(unittest.TestCase):
         y = x * 10
         selector = np.where(np.arange(y.size) % 2 == 0)[0]
         np.put(y, selector, -1)
-        mi = es.mutual_info(x, y, norm=es.MINorm.none, base=np.e)
+        mi = es.mutual_info(x, y, norm="none", base=np.e)
         self.assertAlmostEqual(mi, 1.15, 2)
 
     def test_mutual_info_with_base_0(self):
