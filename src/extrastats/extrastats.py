@@ -24,12 +24,10 @@ This Source Code Form is subject to the terms of the Mozilla Public License, v. 
 
 """
 
-
 import logging
 import math
 import warnings
 from collections import namedtuple
-from enum import Enum
 from functools import partial, reduce, singledispatch, wraps
 from itertools import batched, chain
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
@@ -39,6 +37,23 @@ from joblib import Parallel, delayed
 from numpy.typing import ArrayLike
 from scipy import stats
 from statsmodels.stats.stattools import medcouple
+
+__all__ = [
+    "MedcoupleError",
+    "TestResult",
+    "adjusted_boxplot",
+    "permutation_test",
+    "confidence_interval",
+    "sample_size",
+    "tail_weight",
+    "standard_error",
+    "gcv",
+    "hvar",
+    "xtrim",
+    "ftrim",
+    "sum_prob",
+    "mutual_info",
+]
 
 DEFAULT_THRESHOLD = 1.5
 MAX_INT = 2147483648
@@ -838,9 +853,6 @@ def sum_prob(p: Sequence[float]) -> float:
         return 0.0
 
     return reduce(lambda x, y: x + y - x * y, p)
-
-
-MINorm = Enum("MINorm", ("min_info", "max_info", "avg_info", "none"))
 
 
 def mutual_info(
