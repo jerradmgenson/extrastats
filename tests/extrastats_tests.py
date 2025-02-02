@@ -812,14 +812,14 @@ class TestAdjustedBoxplot(unittest.TestCase):
         self.assertAlmostEqual(high, 2.48356375, 1)
         self.assertEqual(len(y), 43)
 
-    @patch("extrastats.medcouple", MagicMock(return_value=np.nan))
+    @patch("extrastats.extrastats.medcouple", MagicMock(return_value=np.nan))
     def test_medcouple_nan_raises_exception(self):
         rng = np.random.default_rng(510030955)
         x = rng.uniform(-1000000, 1000000, 1000)
         with self.assertRaises(es.MedcoupleError):
             es.adjusted_boxplot(x)
 
-    @patch("extrastats.medcouple", MagicMock(return_value=np.nan))
+    @patch("extrastats.extrastats.medcouple", MagicMock(return_value=np.nan))
     def test_medcouple_nan_logs_warning(self):
         rng = np.random.default_rng(510030955)
         x = rng.uniform(-1000000, 1000000, 1000)
